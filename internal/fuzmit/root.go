@@ -23,20 +23,24 @@ type runOptions struct {
 const scopePromptSentinel = "__PROMPT_SCOPE__"
 
 // NewRootCommand builds the fuzmit command tree.
-func NewRootCommand() *cobra.Command {
+func NewRootCommand(helpNoEmojis bool) *cobra.Command {
 	opts := runOptions{}
 
 	cmd := &cobra.Command{
 		Use:   "fuzmit [flags] [description]",
 		Short: "Conventional Commits, but fuzzy",
-		Long: `fuzmit builds conventional commits with fuzzy selection or direct flags.
+		Long:  rootLongDescription(helpNoEmojis),
+		Example: `# Interactive fuzzy flow:
+fuzmit
 
-Examples:
-  fuzmit
-  fuzmit --type fix --scope auth -m "prevent nil panic"
-  fuzmit --type docs --no-emojis -m "update README usage"
-  fuzmit --scope
-`,
+# Explicit type/scope/message:
+fuzmit --type fix --scope auth -m "prevent nil panic"
+
+# Prompt for optional scope:
+fuzmit --scope
+
+# Disable emojis in picker/help:
+fuzmit --no-emojis`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			localOpts := opts
@@ -73,12 +77,6 @@ Examples:
 	cmd.AddCommand(newScopeCommand())
 	cmd.AddCommand(newJiraScopeCommand())
 	cmd.AddCommand(newDefaultsCommand())
-	cmd.SetHelpFunc(func(c *cobra.Command, _ []string) {
-		_ = PrintHelp(c.OutOrStdout(), resolveNoEmojiHelp(c))
-	})
-	cmd.SetUsageFunc(func(c *cobra.Command) error {
-		return c.Help()
-	})
 
 	return cmd
 }
@@ -320,16 +318,4 @@ func newDefaultsCommand() *cobra.Command {
 			return nil
 		},
 	}
-}
-
-func resolveNoEmojiHelp(cmd *cobra.Command) bool {
-	cfg, err := LoadConfig()
-	if err != nil {
-		return false
-	}
-	noEmojis := ResolveDefaults(cfg, os.Getenv).NoEmojis
-	if v, err := cmd.Flags().GetBool("no-emojis"); err == nil && v {
-		noEmojis = true
-	}
-	return noEmojis
 }

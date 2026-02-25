@@ -16,12 +16,13 @@ var version = "dev"
 func main() {
 	args := os.Args[1:]
 	noEmojis := noEmojiRequested(args, os.Getenv("FUZMIT_NO_EMOJIS"))
-	if rootHelpRequested(args) {
-		_ = fuzmit.PrintHelp(os.Stdout, noEmojis)
-		return
+	if !noEmojis {
+		if cfg, err := fuzmit.LoadConfig(); err == nil {
+			noEmojis = fuzmit.ResolveDefaults(cfg, os.Getenv).NoEmojis
+		}
 	}
 
-	cmd := fuzmit.NewRootCommand()
+	cmd := fuzmit.NewRootCommand(noEmojis)
 	if err := fang.Execute(
 		context.Background(),
 		cmd,
@@ -30,22 +31,6 @@ func main() {
 	); err != nil {
 		os.Exit(1)
 	}
-}
-
-func rootHelpRequested(args []string) bool {
-	if len(args) == 0 {
-		return false
-	}
-	for _, arg := range args {
-		if arg == "--help" || arg == "-h" {
-			return true
-		}
-		if strings.HasPrefix(arg, "-") {
-			continue
-		}
-		return arg == "help"
-	}
-	return false
 }
 
 func errorHandler() fang.ErrorHandler {
