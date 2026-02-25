@@ -5,34 +5,25 @@ import (
 	"testing"
 )
 
-func TestRootLongDescriptionCommitFormat(t *testing.T) {
+func TestRootLongDescription(t *testing.T) {
 	got := rootLongDescription(false)
 
-	if !strings.Contains(got, "<type>(optional scope): <description>") {
-		t.Fatalf("missing commit format line: %q", got)
-	}
-	if strings.Contains(got, "<type>(optional scope)!: <description>") {
-		t.Fatalf("commit format should not force breaking marker: %q", got)
+	if got != "fuzmit: Conventional Commits, but Fuzzy." {
+		t.Fatalf("unexpected long description: %q", got)
 	}
 }
 
-func TestHelpCommitTypeRowsNoEmojiAlignment(t *testing.T) {
-	rows := helpCommitTypeRows(true)
+func TestHelpNotesLine(t *testing.T) {
+	got := helpNotesLine(false)
 
-	want := []string{
-		"build     Project build or dependencies changes",
-		"refactor  Code refactoring without behavior change",
+	if !strings.Contains(got, conventionalCommitsSpecURL) {
+		t.Fatalf("missing notes URL: %q", got)
 	}
-	for _, w := range want {
-		found := false
-		for _, row := range rows {
-			if row == w {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Fatalf("missing row %q in %q", w, rows)
-		}
+}
+
+func TestHelpTaglineColorized(t *testing.T) {
+	got := helpTagline(true)
+	if !strings.Contains(got, "\x1b[") {
+		t.Fatalf("expected ANSI styling, got %q", got)
 	}
 }
