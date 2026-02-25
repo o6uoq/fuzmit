@@ -1,0 +1,78 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Check formatting
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "Unformatted files:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: Go test
+        run: go test ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.10.1
+
+      - name: Conventional commit subjects
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            range="${{ github.event.pull_request.base.sha }}..${{ github.sha }}"
+          else
+            if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+              range="HEAD~1..HEAD"
+            else
+              range="HEAD"
+            fi
+          fi
+
+          tmp_file="$(mktemp)"
+          trap 'rm -f "$tmp_file"' EXIT
+
+          failed=0
+          while IFS= read -r sha; do
+            subject="$(git log -1 --format=%s "$sha")"
+            printf '%s\n' "$subject" >"$tmp_file"
+            if ! scripts/validate-commit-msg.sh "$tmp_file"; then
+              echo "invalid commit subject for $sha: $subject"
+              failed=1
+            fi
+          done < <(git rev-list "$range")
+
+          if [ "$failed" -ne 0 ]; then
+            exit 1
+          fi
