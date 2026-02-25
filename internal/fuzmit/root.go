@@ -3,7 +3,6 @@ package fuzmit
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -333,65 +332,4 @@ func resolveNoEmojiHelp(cmd *cobra.Command) bool {
 		noEmojis = true
 	}
 	return noEmojis
-}
-
-func PrintHelp(w io.Writer, noEmojis bool) error {
-	c := func(color, text string) string { return color + text + "\033[0m" }
-	writeLine := func(s string) {
-		_, _ = fmt.Fprintln(w, s)
-	}
-	writeBlank := func() {
-		_, _ = fmt.Fprintln(w)
-	}
-	writef := func(format string, a ...any) {
-		_, _ = fmt.Fprintf(w, format, a...)
-	}
-
-	brightCyan := "\033[1;38;5;81m"
-	white := "\033[1;37m"
-	green := "\033[1;32m"
-	purple := "\033[1;35m"
-	blue := "\033[1;34m"
-	cyan := "\033[1;36m"
-
-	writeLine(c(brightCyan, "fuzmit: Conventional Commits, but Fuzzy."))
-	writeBlank()
-	writeLine(c(white, "# Conventional Commit Message Format:"))
-	writef("%s%s%s: %s\n", c(green, "<type>"), c(blue, "(optional scope)"), c(purple, "!"), c(cyan, "<description>"))
-	writeBlank()
-	writeLine(c(white, "Commit Types:"))
-	for _, ct := range SupportedTypes {
-		if noEmojis {
-			writef("    %s - %s\n", ct.Name, ct.Description)
-		} else {
-			writef("    %s  %s - %s\n", ct.Emoji, ct.Name, ct.Description)
-		}
-	}
-	writeBlank()
-	writeLine(c(white, "# Example Commit Message:"))
-	writeLine(c(cyan, "feat(authentication): add support for password reset"))
-	writeBlank()
-	writeLine(c(white, "# Usage:"))
-	writeLine("  fuzmit [--type <type>] [--scope <scope>|--scope] [--jira-scope] [--override] [-m <message>]")
-	writeLine("  fuzmit defaults")
-	writeLine("  fuzmit scope [on|off]")
-	writeLine("  fuzmit jira-scope [on|off]")
-	writeBlank()
-	writeLine(c(white, "# Options:"))
-	writeLine("  --jira-scope     Auto-detect Jira scope from branch name (e.g. ABC-123)")
-	writeLine("  -m, --message    Set commit description directly")
-	writeLine("  --no-emojis      Disable emojis in commit-type menus/help")
-	writeLine("  --override       Bypass main branch restriction and allow committing")
-	writeLine("  --scope <name>   Set optional scope directly")
-	writeLine("  --scope          Prompt for optional scope")
-	writeLine("  --type <type>    Set commit type directly (build|chore|ci|docs|feat|fix|perf|refactor|style|test)")
-	writeBlank()
-	writeLine(c(white, "# Notes:"))
-	writeLine("  - Commit subjects are emoji-free conventional commits")
-	writeLine("  - If FUZMIT_JIRA_SCOPE=true, scope prompt/defaults are ignored and Jira scope is auto-detected")
-	writeLine("  - No staged changes exits cleanly without committing")
-	writeBlank()
-	writeLine(c(cyan, "Conventional Commits: https://www.conventionalcommits.org/en/v1.0.0/#specification"))
-	writeBlank()
-	return nil
 }
