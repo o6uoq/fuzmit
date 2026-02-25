@@ -1,6 +1,11 @@
 package fuzmit
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/mattn/go-runewidth"
+)
 
 // CommitType describes a conventional commit type.
 type CommitType struct {
@@ -18,7 +23,7 @@ var SupportedTypes = []CommitType{
 	{Name: "feat", Emoji: "🚀", Description: "New feature addition"},
 	{Name: "fix", Emoji: "🔧", Description: "Bug fixes"},
 	{Name: "perf", Emoji: "🏎", Description: "Performance improvements"},
-	{Name: "refactor", Emoji: "🛠️", Description: "Code refactoring without behavior change"},
+	{Name: "refactor", Emoji: "🛠", Description: "Code refactoring without behavior change"},
 	{Name: "style", Emoji: "🎨", Description: "Code style or formatting changes"},
 	{Name: "test", Emoji: "🧪", Description: "Adding or modifying tests"},
 }
@@ -36,8 +41,36 @@ func FindCommitType(name string) (CommitType, bool) {
 
 // FormatTypeLabel renders a commit type label for interactive selection.
 func FormatTypeLabel(ct CommitType, noEmojis bool) string {
+	maxNameWidth := maxCommitTypeNameWidth()
 	if noEmojis {
-		return ct.Name + " - " + ct.Description
+		return fmt.Sprintf("%-*s - %s", maxNameWidth, ct.Name, ct.Description)
 	}
-	return ct.Emoji + " " + ct.Name + " - " + ct.Description
+
+	emojiWidth := maxCommitTypeEmojiWidth()
+	emojiPad := emojiWidth - runewidth.StringWidth(ct.Emoji)
+	if emojiPad < 0 {
+		emojiPad = 0
+	}
+	emojiCell := ct.Emoji + strings.Repeat(" ", emojiPad)
+	return fmt.Sprintf("%s %-*s - %s", emojiCell, maxNameWidth, ct.Name, ct.Description)
+}
+
+func maxCommitTypeNameWidth() int {
+	maxWidth := 0
+	for _, supported := range SupportedTypes {
+		if l := len(supported.Name); l > maxWidth {
+			maxWidth = l
+		}
+	}
+	return maxWidth
+}
+
+func maxCommitTypeEmojiWidth() int {
+	maxWidth := 0
+	for _, supported := range SupportedTypes {
+		if w := runewidth.StringWidth(supported.Emoji); w > maxWidth {
+			maxWidth = w
+		}
+	}
+	return maxWidth
 }

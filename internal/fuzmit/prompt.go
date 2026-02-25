@@ -5,29 +5,51 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
-	fuzzyfinder "github.com/ktr0731/go-fuzzyfinder"
+	"github.com/charmbracelet/huh"
 )
 
 var errSelectionAborted = errors.New("selection aborted")
 
-// SelectCommitType runs the interactive fuzzy type picker.
+// SelectCommitType runs the interactive type picker.
 func SelectCommitType(noEmojis bool) (CommitType, error) {
-	idx, err := fuzzyfinder.Find(
-		SupportedTypes,
-		func(i int) string {
-			return FormatTypeLabel(SupportedTypes[i], noEmojis)
-		},
-		fuzzyfinder.WithPromptString("Pick commit type > "),
-	)
+	types := pickerTypes()
+	var selectedType string
+	options := make([]huh.Option[string], 0, len(types))
+	for _, ct := range types {
+		options = append(options, huh.NewOption(FormatTypeLabel(ct, noEmojis), ct.Name))
+	}
+
+	err := huh.NewSelect[string]().
+		Title("Pick commit type").
+		Description("Press / to filter, Enter to select").
+		Options(options...).
+		Value(&selectedType).
+		Run()
 	if err != nil {
-		if errors.Is(err, fuzzyfinder.ErrAbort) {
+		if errors.Is(err, huh.ErrUserAborted) {
 			return CommitType{}, errSelectionAborted
 		}
 		return CommitType{}, err
 	}
-	return SupportedTypes[idx], nil
+
+	ct, ok := FindCommitType(selectedType)
+	if !ok {
+		return CommitType{}, fmt.Errorf("fuzmit: selected unknown commit type %q", selectedType)
+	}
+	return ct, nil
+}
+
+// pickerTypes returns commit types in deterministic alphabetical order.
+func pickerTypes() []CommitType {
+	types := make([]CommitType, len(SupportedTypes))
+	copy(types, SupportedTypes)
+	sort.Slice(types, func(i, j int) bool {
+		return types[i].Name < types[j].Name
+	})
+	return types
 }
 
 // PromptLine asks for a single-line text input.
