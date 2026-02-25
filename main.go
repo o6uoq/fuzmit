@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -15,50 +13,32 @@ var version = "dev"
 
 func main() {
 	args := os.Args[1:]
-	noEmojis := noEmojiRequested(args, os.Getenv("FUZMIT_NO_EMOJIS"))
-	if !noEmojis {
-		if cfg, err := fuzmit.LoadConfig(); err == nil {
-			noEmojis = fuzmit.ResolveDefaults(cfg, os.Getenv).NoEmojis
-		}
-	}
-
-	cmd := fuzmit.NewRootCommand(noEmojis)
+	helpMode := helpRequested(args)
+	cmd := fuzmit.NewRootCommand()
 	if err := fang.Execute(
 		context.Background(),
 		cmd,
 		fang.WithVersion(version),
-		fang.WithErrorHandler(errorHandler()),
 	); err != nil {
 		os.Exit(1)
 	}
-}
-
-func errorHandler() fang.ErrorHandler {
-	return func(w io.Writer, _ fang.Styles, err error) {
-		msg := strings.TrimSpace(err.Error())
-		if msg == "" {
-			return
-		}
-		if strings.HasPrefix(strings.ToLower(msg), "fuzmit:") {
-			_, _ = fmt.Fprintf(w, "❌ %s\n\n", msg)
-			return
-		}
-		_, _ = fmt.Fprintf(w, "❌ fuzmit: %s\n\n", msg)
+	if helpMode {
+		fuzmit.PrintHelpNotes(os.Stdout)
 	}
 }
 
-func noEmojiRequested(args []string, env string) bool {
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if arg == "--no-emojis" || strings.HasPrefix(arg, "--no-emojis=") {
+func helpRequested(args []string) bool {
+	if len(args) > 0 && args[0] == "help" {
+		return true
+	}
+
+	for _, arg := range args {
+		if arg == "--" {
+			break
+		}
+		if arg == "-h" || arg == "--help" || strings.HasPrefix(arg, "--help=") {
 			return true
 		}
 	}
-	env = strings.TrimSpace(strings.ToLower(env))
-	switch env {
-	case "1", "true", "yes", "on", "y":
-		return true
-	default:
-		return false
-	}
+	return false
 }

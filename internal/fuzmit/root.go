@@ -23,13 +23,13 @@ type runOptions struct {
 const scopePromptSentinel = "__PROMPT_SCOPE__"
 
 // NewRootCommand builds the fuzmit command tree.
-func NewRootCommand(helpNoEmojis bool) *cobra.Command {
+func NewRootCommand() *cobra.Command {
 	opts := runOptions{}
 
 	cmd := &cobra.Command{
 		Use:   "fuzmit [flags] [description]",
-		Short: "Conventional Commits, but fuzzy",
-		Long:  rootLongDescription(helpNoEmojis),
+		Short: "Conventional Commits, but Fuzzy",
+		Long:  rootLongDescription(supportsStyling(os.Stdout)),
 		Example: `# Interactive fuzzy flow:
 fuzmit
 
@@ -58,15 +58,15 @@ fuzmit --no-emojis`,
 	}
 
 	typeList := strings.Join(typeNames(), "|")
-	cmd.Flags().StringVar(&opts.Type, "type", "", "Commit type: "+typeList)
-	cmd.Flags().StringVar(&opts.Scope, "scope", "", "Set optional scope (e.g. auth or ABC-123); pass --scope without a value to prompt")
+	cmd.Flags().StringVarP(&opts.Type, "type", "t", "", "Commit type: "+typeList)
+	cmd.Flags().StringVarP(&opts.Scope, "scope", "s", "", "Set optional scope (e.g. auth or ABC-123); pass --scope without a value to prompt")
 	if scopeFlag := cmd.Flags().Lookup("scope"); scopeFlag != nil {
 		scopeFlag.NoOptDefVal = scopePromptSentinel
 	}
 	cmd.Flags().BoolVar(&opts.AskScope, "prompt-scope", false, "Deprecated: use --scope without a value")
 	_ = cmd.Flags().MarkHidden("prompt-scope")
 	_ = cmd.Flags().MarkDeprecated("prompt-scope", "use --scope without a value instead")
-	cmd.Flags().BoolVar(&opts.GeoScope, "jira-scope", false, "Auto-detect Jira scope from branch name (e.g. ABC-123)")
+	cmd.Flags().BoolVarP(&opts.GeoScope, "jira-scope", "j", false, "Auto-detect Jira scope from branch name (e.g. ABC-123)")
 	cmd.Flags().Bool("geoscope", false, "Deprecated alias for --jira-scope")
 	_ = cmd.Flags().MarkHidden("geoscope")
 	_ = cmd.Flags().MarkDeprecated("geoscope", "use --jira-scope instead")
@@ -109,7 +109,7 @@ func runCommit(cmd *cobra.Command, args []string, opts runOptions) error {
 		return err
 	}
 	if !hasStaged {
-		cmd.Println("ℹ️  fuzmit: No staged changes to commit.")
+		printInfo(cmd, "No staged changes to commit.")
 		return nil
 	}
 
@@ -133,7 +133,7 @@ func runCommit(cmd *cobra.Command, args []string, opts runOptions) error {
 		return fmt.Errorf("fuzmit: %w", err)
 	}
 
-	cmd.Printf("💾  fuzmit: Commit message - '%s'\n", full)
+	printCommit(cmd, full)
 
 	output, err := Commit(full)
 	if output != "" {
@@ -171,7 +171,7 @@ func resolveScope(cmd *cobra.Command, opts runOptions, branch string, scopeEnabl
 			if err := ValidateScope(scope); err != nil {
 				return "", fmt.Errorf("fuzmit: invalid extracted Jira scope %q: %w", scope, err)
 			}
-			cmd.Printf("ℹ️  fuzmit: Auto-detected Jira scope '%s'\n", scope)
+			printInfof(cmd, "Auto-detected Jira scope %q.", scope)
 		}
 		return scope, nil
 	}
@@ -248,7 +248,7 @@ func newScopeCommand() *cobra.Command {
 			}
 
 			if len(args) == 0 {
-				cmd.Printf("scope default: %t\n", cfg.Scope)
+				printKeyValue(cmd, "scope", cfg.Scope)
 				return nil
 			}
 
@@ -260,7 +260,7 @@ func newScopeCommand() *cobra.Command {
 			if err := SaveConfig(cfg); err != nil {
 				return err
 			}
-			cmd.Printf("scope default set to %t\n", v)
+			printInfof(cmd, "Scope default set to %t.", v)
 			return nil
 		},
 	}
@@ -279,7 +279,7 @@ func newJiraScopeCommand() *cobra.Command {
 			}
 
 			if len(args) == 0 {
-				cmd.Printf("jira-scope default: %t\n", cfg.GeoScope)
+				printKeyValue(cmd, "jira-scope", cfg.GeoScope)
 				return nil
 			}
 
@@ -291,7 +291,7 @@ func newJiraScopeCommand() *cobra.Command {
 			if err := SaveConfig(cfg); err != nil {
 				return err
 			}
-			cmd.Printf("jira-scope default set to %t\n", v)
+			printInfof(cmd, "Jira scope default set to %t.", v)
 			return nil
 		},
 	}
@@ -311,10 +311,10 @@ func newDefaultsCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cmd.Printf("config: %s\n", path)
-			cmd.Printf("scope: %t\n", d.Scope)
-			cmd.Printf("jira-scope: %t\n", d.GeoScope)
-			cmd.Printf("no-emojis: %t\n", d.NoEmojis)
+			printKeyValue(cmd, "config", path)
+			printKeyValue(cmd, "scope", d.Scope)
+			printKeyValue(cmd, "jira-scope", d.GeoScope)
+			printKeyValue(cmd, "no-emojis", d.NoEmojis)
 			return nil
 		},
 	}
