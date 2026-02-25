@@ -55,10 +55,10 @@ func errorHandler() fang.ErrorHandler {
 			return
 		}
 		if strings.HasPrefix(strings.ToLower(msg), "fuzmit:") {
-			_, _ = fmt.Fprintf(w, "❌ %s\n", msg)
+			_, _ = fmt.Fprintf(w, "❌ %s\n\n", msg)
 			return
 		}
-		_, _ = fmt.Fprintf(w, "❌ fuzmit: %s\n", msg)
+		_, _ = fmt.Fprintf(w, "❌ fuzmit: %s\n\n", msg)
 	}
 }
 
