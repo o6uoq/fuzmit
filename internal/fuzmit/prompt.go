@@ -23,20 +23,8 @@ type interactiveCommitAnswers struct {
 
 // SelectCommitType runs the interactive type picker.
 func SelectCommitType(noEmojis bool) (CommitType, error) {
-	types := pickerTypes()
 	var selectedType string
-	options := make([]huh.Option[string], 0, len(types))
-	for _, ct := range types {
-		options = append(options, huh.NewOption(FormatTypeLabel(ct, noEmojis), ct.Name))
-	}
-
-	err := huh.NewSelect[string]().
-		Title("Pick commit type").
-		Description("Type to filter, Enter to select").
-		Filtering(true).
-		Options(options...).
-		Value(&selectedType).
-		Run()
+	err := newCommitTypeSelect(noEmojis, &selectedType).Run()
 	if err != nil {
 		if errors.Is(err, huh.ErrUserAborted) {
 			return CommitType{}, errSelectionAborted
@@ -54,20 +42,10 @@ func SelectCommitType(noEmojis bool) (CommitType, error) {
 // PromptInteractiveCommitFlow runs type + description prompts in one Huh form.
 // Scope is included only when askScope is true.
 func PromptInteractiveCommitFlow(noEmojis bool, askScope bool) (interactiveCommitAnswers, error) {
-	types := pickerTypes()
 	answers := interactiveCommitAnswers{}
-	options := make([]huh.Option[string], 0, len(types))
-	for _, ct := range types {
-		options = append(options, huh.NewOption(FormatTypeLabel(ct, noEmojis), ct.Name))
-	}
 
 	fields := []huh.Field{
-		huh.NewSelect[string]().
-			Title("Pick commit type").
-			Description("Type to filter, Enter to select").
-			Filtering(true).
-			Options(options...).
-			Value(&answers.Type),
+		newCommitTypeSelect(noEmojis, &answers.Type),
 	}
 
 	if askScope {
@@ -109,6 +87,24 @@ func pickerTypes() []CommitType {
 		return types[i].Name < types[j].Name
 	})
 	return types
+}
+
+func commitTypeOptions(noEmojis bool) []huh.Option[string] {
+	types := pickerTypes()
+	options := make([]huh.Option[string], 0, len(types))
+	for _, ct := range types {
+		options = append(options, huh.NewOption(FormatTypeLabel(ct, noEmojis), ct.Name))
+	}
+	return options
+}
+
+func newCommitTypeSelect(noEmojis bool, value *string) *huh.Select[string] {
+	return huh.NewSelect[string]().
+		Title("Pick commit type").
+		Description("Type to filter, Enter to select").
+		Filtering(true).
+		Options(commitTypeOptions(noEmojis)...).
+		Value(value)
 }
 
 // PromptLine asks for a single-line text input.

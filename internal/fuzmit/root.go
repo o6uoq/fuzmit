@@ -183,15 +183,11 @@ func resolveCommitType(typeFlag string, noEmojis bool) (CommitType, error) {
 
 func resolveScope(cmd *cobra.Command, opts runOptions, branch string, scopeEnabled bool, geoScope bool) (string, error) {
 	if geoScope {
-		scope := ExtractJiraScope(branch)
-		if scope != "" {
-			if err := ValidateScope(scope); err != nil {
-				return "", fmt.Errorf("fuzmit: invalid extracted Jira scope %q: %w", scope, err)
-			}
-			printInfof(cmd, "Auto-detected Jira scope %q.", scope)
-		} else {
-			printInfo(cmd, "Jira scope auto-detect enabled; no Jira key found in branch, proceeding without scope.")
+		scope, err := resolveJiraScope(branch)
+		if err != nil {
+			return "", err
 		}
+		printJiraScopeInfo(cmd, scope)
 		return scope, nil
 	}
 
@@ -265,11 +261,9 @@ func resolveInteractiveCommitInputs(
 	scope := ""
 
 	if geoScope {
-		extracted := ExtractJiraScope(branch)
-		if extracted != "" {
-			if err := ValidateScope(extracted); err != nil {
-				return CommitType{}, "", "", fmt.Errorf("fuzmit: invalid extracted Jira scope %q: %w", extracted, err)
-			}
+		extracted, err := resolveJiraScope(branch)
+		if err != nil {
+			return CommitType{}, "", "", err
 		}
 		scope = extracted
 	} else if opts.ScopeSet {
@@ -308,11 +302,7 @@ func resolveInteractiveCommitInputs(
 	}
 
 	if geoScope {
-		if scope != "" {
-			printInfof(cmd, "Auto-detected Jira scope %q.", scope)
-		} else {
-			printInfo(cmd, "Jira scope auto-detect enabled; no Jira key found in branch, proceeding without scope.")
-		}
+		printJiraScopeInfo(cmd, scope)
 	}
 
 	description := strings.TrimSpace(answers.Description)
@@ -354,4 +344,23 @@ func envSettingSource(setting EnvSetting) string {
 		return fmt.Sprintf("default (invalid: %q)", setting.Raw)
 	}
 	return fmt.Sprintf("env (%q)", setting.Raw)
+}
+
+func resolveJiraScope(branch string) (string, error) {
+	scope := ExtractJiraScope(branch)
+	if scope == "" {
+		return "", nil
+	}
+	if err := ValidateScope(scope); err != nil {
+		return "", fmt.Errorf("fuzmit: invalid extracted Jira scope %q: %w", scope, err)
+	}
+	return scope, nil
+}
+
+func printJiraScopeInfo(cmd *cobra.Command, scope string) {
+	if scope != "" {
+		printInfof(cmd, "Auto-detected Jira scope %q.", scope)
+		return
+	}
+	printInfo(cmd, "Jira scope auto-detect enabled; no Jira key found in branch, proceeding without scope.")
 }
