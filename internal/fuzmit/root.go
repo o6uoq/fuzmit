@@ -286,7 +286,7 @@ func resolveInteractiveCommitInputs(
 		scopeInputEnabled = true
 	}
 
-	answers, err := PromptInteractiveCommitFlow(cmd.InOrStdin(), cmd.OutOrStdout(), noEmojis, scopeInputEnabled)
+	answers, err := PromptInteractiveCommitFlow(noEmojis, scopeInputEnabled)
 	if err != nil {
 		if errors.Is(err, errSelectionAborted) {
 			return CommitType{}, "", "", errors.New("fuzmit: no commit type selected, aborting")

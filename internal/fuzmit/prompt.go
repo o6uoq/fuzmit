@@ -52,7 +52,7 @@ func SelectCommitType(noEmojis bool) (CommitType, error) {
 
 // PromptInteractiveCommitFlow runs type + description prompts in one Huh form.
 // Scope is included only when askScope is true.
-func PromptInteractiveCommitFlow(in io.Reader, out io.Writer, noEmojis bool, askScope bool) (interactiveCommitAnswers, error) {
+func PromptInteractiveCommitFlow(noEmojis bool, askScope bool) (interactiveCommitAnswers, error) {
 	types := pickerTypes()
 	answers := interactiveCommitAnswers{}
 	options := make([]huh.Option[string], 0, len(types))
@@ -64,6 +64,7 @@ func PromptInteractiveCommitFlow(in io.Reader, out io.Writer, noEmojis bool, ask
 		huh.NewSelect[string]().
 			Title("Pick commit type").
 			Description("Press / to filter, Enter to select").
+			Height(len(options)).
 			Options(options...).
 			Value(&answers.Type),
 	}
@@ -77,7 +78,6 @@ func PromptInteractiveCommitFlow(in io.Reader, out io.Writer, noEmojis bool, ask
 
 	fields = append(fields, huh.NewInput().
 		Title("Commit description").
-		Placeholder("fix nil panic").
 		Validate(func(v string) error {
 			if strings.TrimSpace(v) == "" {
 				return errors.New("commit description cannot be empty")
@@ -87,8 +87,6 @@ func PromptInteractiveCommitFlow(in io.Reader, out io.Writer, noEmojis bool, ask
 		Value(&answers.Description))
 
 	form := huh.NewForm(huh.NewGroup(fields...)).
-		WithInput(in).
-		WithOutput(out).
 		WithShowHelp(false)
 	if err := form.Run(); err != nil {
 		if errors.Is(err, huh.ErrUserAborted) {
