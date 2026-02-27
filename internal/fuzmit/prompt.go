@@ -32,7 +32,8 @@ func SelectCommitType(noEmojis bool) (CommitType, error) {
 
 	err := huh.NewSelect[string]().
 		Title("Pick commit type").
-		Description("Press / to filter, Enter to select").
+		Description("Type to filter, Enter to select").
+		Filtering(true).
 		Options(options...).
 		Value(&selectedType).
 		Run()
@@ -63,7 +64,8 @@ func PromptInteractiveCommitFlow(noEmojis bool, askScope bool) (interactiveCommi
 	fields := []huh.Field{
 		huh.NewSelect[string]().
 			Title("Pick commit type").
-			Description("Press / to filter, Enter to select").
+			Description("Type to filter, Enter to select").
+			Filtering(true).
 			Options(options...).
 			Value(&answers.Type),
 	}
