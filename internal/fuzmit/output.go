@@ -121,14 +121,12 @@ func printStatus(w io.Writer, level outputLevel, message string) {
 	cs := defaultFangColorScheme()
 	badge := lipgloss.NewStyle().
 		Bold(true).
-		Padding(0, 1).
-		Foreground(cs.Codeblock).
-		Background(cs.Title)
+		Foreground(cs.Command)
 	if level == outputCommit {
-		badge = badge.Background(cs.Flag)
+		badge = badge.Foreground(cs.Flag)
 	}
-	text := lipgloss.NewStyle().Foreground(cs.Base)
-	_, _ = fmt.Fprintf(w, "%s %s\n", badge.Render(strings.ToUpper(string(level))), text.Render(msg))
+	text := lipgloss.NewStyle()
+	_, _ = fmt.Fprintf(w, "%s  %s\n", badge.Render(strings.ToUpper(string(level))), text.Render(msg))
 }
 
 func PrintHelpNotes(w io.Writer) {
