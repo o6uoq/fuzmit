@@ -46,63 +46,65 @@ func printKeyValue(cmd *cobra.Command, key string, value any) {
 
 func printEnvSettings(cmd *cobra.Command, settings []EnvSetting) {
 	w := cmd.OutOrStdout()
-	nameCol := "VARIABLE"
-	valueCol := "VALUE"
-	sourceCol := "SOURCE"
-
-	nameWidth := len(nameCol)
-	valueWidth := len(valueCol)
+	nameCol, valueCol, sourceCol := "VARIABLE", "VALUE", "SOURCE"
+	rows := make([][3]string, 0, len(settings))
+	nameWidth, valueWidth, sourceWidth := len(nameCol), len(valueCol), len(sourceCol)
 	for _, setting := range settings {
-		if len(setting.Name) > nameWidth {
-			nameWidth = len(setting.Name)
+		row := [3]string{
+			setting.Name,
+			fmt.Sprintf("%t", setting.Value),
+			envSettingSource(setting),
+		}
+		rows = append(rows, row)
+		if len(row[0]) > nameWidth {
+			nameWidth = len(row[0])
+		}
+		if len(row[1]) > valueWidth {
+			valueWidth = len(row[1])
+		}
+		if len(row[2]) > sourceWidth {
+			sourceWidth = len(row[2])
 		}
 	}
-
 	note := "FUZMIT_JIRA_SCOPE=true ignores --scope and FUZMIT_SCOPE."
 	if !supportsStyling(w) {
-		_, _ = fmt.Fprintf(w, "%-*s  %-*s  %s\n", nameWidth, nameCol, valueWidth, valueCol, sourceCol)
-		for _, setting := range settings {
-			_, _ = fmt.Fprintf(w, "%-*s  %-*t  %s\n", nameWidth, setting.Name, valueWidth, setting.Value, envSettingSource(setting))
+		_, _ = fmt.Fprintf(w, "%-*s  %-*s  %-*s\n", nameWidth, nameCol, valueWidth, valueCol, sourceWidth, sourceCol)
+		for _, row := range rows {
+			_, _ = fmt.Fprintf(w, "%-*s  %-*s  %-*s\n", nameWidth, row[0], valueWidth, row[1], sourceWidth, row[2])
 		}
 		_, _ = fmt.Fprintln(w)
-		_, _ = fmt.Fprintf(w, "NOTE  %s\n", note)
+		printStatus(w, outputInfo, note)
 		return
 	}
 
 	cs := defaultFangColorScheme()
-	headerStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(cs.Command)
-	nameStyle := lipgloss.NewStyle().Bold(true).Foreground(cs.Command)
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(cs.Command)
+	nameStyle := lipgloss.NewStyle().Bold(true).Foreground(cs.Program)
 	valueTrueStyle := lipgloss.NewStyle().Bold(true).Foreground(cs.Flag)
 	valueFalseStyle := lipgloss.NewStyle().Foreground(cs.Base)
-	sourceStyle := lipgloss.NewStyle().Foreground(cs.Base)
-	noteLabelStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(cs.Command)
-	noteTextStyle := lipgloss.NewStyle().Foreground(cs.Base)
+	sourceStyle := lipgloss.NewStyle().Foreground(cs.Comment)
 
 	_, _ = fmt.Fprintf(
 		w,
-		"%s %s %s\n",
+		"%s  %s  %s\n",
 		headerStyle.Render(fmt.Sprintf("%-*s", nameWidth, nameCol)),
 		headerStyle.Render(fmt.Sprintf("%-*s", valueWidth, valueCol)),
-		headerStyle.Render(sourceCol),
+		headerStyle.Render(fmt.Sprintf("%-*s", sourceWidth, sourceCol)),
 	)
 
-	for _, setting := range settings {
-		nameCell := nameStyle.Render(fmt.Sprintf("%-*s", nameWidth, setting.Name))
-		valueRaw := fmt.Sprintf("%-*t", valueWidth, setting.Value)
+	for _, row := range rows {
+		nameCell := nameStyle.Render(fmt.Sprintf("%-*s", nameWidth, row[0]))
+		valueRaw := fmt.Sprintf("%-*s", valueWidth, row[1])
 		valueCell := valueFalseStyle.Render(valueRaw)
-		if setting.Value {
+		if row[1] == "true" {
 			valueCell = valueTrueStyle.Render(valueRaw)
 		}
-		sourceCell := sourceStyle.Render(envSettingSource(setting))
+		sourceCell := sourceStyle.Render(fmt.Sprintf("%-*s", sourceWidth, row[2]))
 		_, _ = fmt.Fprintf(w, "%s  %s  %s\n", nameCell, valueCell, sourceCell)
 	}
 
 	_, _ = fmt.Fprintln(w)
-	_, _ = fmt.Fprintf(w, "%s  %s\n", noteLabelStyle.Render("NOTE"), noteTextStyle.Render(note))
+	printStatus(w, outputInfo, note)
 }
 
 func printStatus(w io.Writer, level outputLevel, message string) {
