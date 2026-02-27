@@ -22,6 +22,8 @@ type runOptions struct {
 
 const scopePromptSentinel = "__PROMPT_SCOPE__"
 
+var promptInteractiveFlow = PromptInteractiveCommitFlow
+
 // NewRootCommand builds the fuzmit command tree.
 func NewRootCommand() *cobra.Command {
 	opts := runOptions{}
@@ -280,7 +282,7 @@ func resolveInteractiveCommitInputs(
 		scopeInputEnabled = true
 	}
 
-	answers, err := PromptInteractiveCommitFlow(noEmojis, scopeInputEnabled)
+	answers, err := promptInteractiveFlow(noEmojis, scopeInputEnabled)
 	if err != nil {
 		if errors.Is(err, errSelectionAborted) {
 			return CommitType{}, "", "", errors.New("fuzmit: no commit type selected, aborting")
