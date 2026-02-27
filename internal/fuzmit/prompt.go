@@ -13,6 +13,14 @@ import (
 
 var errSelectionAborted = errors.New("selection aborted")
 
+// interactiveCommitAnswers contains values collected from the unified
+// interactive form flow.
+type interactiveCommitAnswers struct {
+	Type        string
+	Scope       string
+	Description string
+}
+
 // SelectCommitType runs the interactive type picker.
 func SelectCommitType(noEmojis bool) (CommitType, error) {
 	types := pickerTypes()
@@ -40,6 +48,55 @@ func SelectCommitType(noEmojis bool) (CommitType, error) {
 		return CommitType{}, fmt.Errorf("fuzmit: selected unknown commit type %q", selectedType)
 	}
 	return ct, nil
+}
+
+// PromptInteractiveCommitFlow runs type + description prompts in one Huh form.
+// Scope is included only when askScope is true.
+func PromptInteractiveCommitFlow(noEmojis bool, askScope bool) (interactiveCommitAnswers, error) {
+	types := pickerTypes()
+	answers := interactiveCommitAnswers{}
+	options := make([]huh.Option[string], 0, len(types))
+	for _, ct := range types {
+		options = append(options, huh.NewOption(FormatTypeLabel(ct, noEmojis), ct.Name))
+	}
+
+	fields := []huh.Field{
+		huh.NewSelect[string]().
+			Title("Pick commit type").
+			Description("Press / to filter, Enter to select").
+			Options(options...).
+			Value(&answers.Type),
+	}
+
+	if askScope {
+		fields = append(fields, huh.NewInput().
+			Title("Optional scope").
+			Description("Leave blank for no scope").
+			Value(&answers.Scope))
+	}
+
+	fields = append(fields, huh.NewInput().
+		Title("Commit message").
+		Validate(func(v string) error {
+			if strings.TrimSpace(v) == "" {
+				return errors.New("commit description cannot be empty")
+			}
+			return nil
+		}).
+		Value(&answers.Description))
+
+	form := huh.NewForm(huh.NewGroup(fields...)).
+		WithShowHelp(false)
+	if err := form.Run(); err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			return interactiveCommitAnswers{}, errSelectionAborted
+		}
+		return interactiveCommitAnswers{}, err
+	}
+
+	answers.Scope = strings.TrimSpace(answers.Scope)
+	answers.Description = strings.TrimSpace(answers.Description)
+	return answers, nil
 }
 
 // pickerTypes returns commit types in deterministic alphabetical order.

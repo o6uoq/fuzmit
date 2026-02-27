@@ -1,27 +1,12 @@
 package fuzmit
 
-import (
-	"encoding/json"
-	"errors"
-	"fmt"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
-)
+import "strings"
 
 const (
 	EnvScope    = "FUZMIT_SCOPE"
 	EnvGeoScope = "FUZMIT_JIRA_SCOPE"
 	EnvNoEmojis = "FUZMIT_NO_EMOJIS"
 )
-
-// Config is the persisted default configuration.
-type Config struct {
-	Scope    bool `json:"scope"`
-	GeoScope bool `json:"geoscope"`
-	NoEmojis bool `json:"no_emojis"`
-}
 
 // Defaults is the resolved effective default set.
 type Defaults struct {
@@ -30,83 +15,48 @@ type Defaults struct {
 	NoEmojis bool
 }
 
-// ConfigPath returns the config file location.
-func ConfigPath() (string, error) {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return "", fmt.Errorf("resolve user config dir: %w", err)
-	}
-	return filepath.Join(dir, "fuzmit", "config.json"), nil
+// EnvSetting is the resolved value for a supported FUZMIT_* variable.
+type EnvSetting struct {
+	Name      string
+	Value     bool
+	Raw       string
+	FromEnv   bool
+	ValidBool bool
 }
 
-// LoadConfig reads config from disk; missing file returns a zero config.
-func LoadConfig() (Config, error) {
-	path, err := ConfigPath()
-	if err != nil {
-		return Config{}, err
+// ResolveDefaults reads defaults from environment variables only.
+func ResolveDefaults(getenv func(string) string) Defaults {
+	settings := ResolveEnvSettings(getenv)
+	out := Defaults{}
+	for _, s := range settings {
+		switch s.Name {
+		case EnvScope:
+			out.Scope = s.Value
+		case EnvGeoScope:
+			out.GeoScope = s.Value
+		case EnvNoEmojis:
+			out.NoEmojis = s.Value
+		}
 	}
-
-	b, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return Config{}, nil
-	}
-	if err != nil {
-		return Config{}, fmt.Errorf("read config: %w", err)
-	}
-
-	var cfg Config
-	if err := json.Unmarshal(b, &cfg); err != nil {
-		return Config{}, fmt.Errorf("parse config: %w", err)
-	}
-	return cfg, nil
-}
-
-// SaveConfig writes config to disk.
-func SaveConfig(cfg Config) error {
-	path, err := ConfigPath()
-	if err != nil {
-		return err
-	}
-
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("create config dir: %w", err)
-	}
-
-	b, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return fmt.Errorf("encode config: %w", err)
-	}
-	b = append(b, '\n')
-
-	if err := os.WriteFile(path, b, 0o600); err != nil {
-		return fmt.Errorf("write config: %w", err)
-	}
-	return nil
-}
-
-// ResolveDefaults merges config defaults with environment overrides.
-func ResolveDefaults(cfg Config, getenv func(string) string) Defaults {
-	out := Defaults(cfg)
-
-	if v, ok := parseBool(getenv(EnvScope)); ok {
-		out.Scope = v
-	}
-	if v, ok := parseBool(getenv(EnvGeoScope)); ok {
-		out.GeoScope = v
-	}
-	if v, ok := parseBool(getenv(EnvNoEmojis)); ok {
-		out.NoEmojis = v
-	}
-
 	return out
 }
 
-// ParseToggleArg parses "on"/"off" style toggle args.
-func ParseToggleArg(arg string) (bool, error) {
-	if v, ok := parseBool(arg); ok {
-		return v, nil
+// ResolveEnvSettings returns supported environment settings and their resolved values.
+func ResolveEnvSettings(getenv func(string) string) []EnvSetting {
+	keys := []string{EnvScope, EnvGeoScope, EnvNoEmojis}
+	settings := make([]EnvSetting, 0, len(keys))
+	for _, key := range keys {
+		raw := strings.TrimSpace(getenv(key))
+		value, ok := parseBool(raw)
+		settings = append(settings, EnvSetting{
+			Name:      key,
+			Value:     value,
+			Raw:       raw,
+			FromEnv:   raw != "",
+			ValidBool: ok,
+		})
 	}
-	return false, fmt.Errorf("invalid value %q: expected on/off", arg)
+	return settings
 }
 
 func parseBool(raw string) (bool, bool) {
@@ -122,9 +72,5 @@ func parseBool(raw string) (bool, bool) {
 		return false, true
 	}
 
-	v, err := strconv.ParseBool(raw)
-	if err != nil {
-		return false, false
-	}
-	return v, true
+	return false, false
 }

@@ -34,10 +34,10 @@ func NewRootCommand() *cobra.Command {
 fuzmit
 
 # Explicit type/scope/message:
-fuzmit --type fix --scope auth -m "prevent nil panic"
+fuzmit --type fix --scope auth -m "fix nil panic"
 
 # Prompt for optional scope:
-fuzmit --scope
+fuzmit --type feat --scope
 
 # Disable emojis in picker/help:
 fuzmit --no-emojis`,
@@ -53,13 +53,16 @@ fuzmit --no-emojis`,
 				v, _ := cmd.Flags().GetBool("geoscope")
 				localOpts.GeoScope = v
 			}
+			if err := validateFlagDependencies(localOpts); err != nil {
+				return err
+			}
 			return runCommit(cmd, args, localOpts)
 		},
 	}
 
 	typeList := strings.Join(typeNames(), "|")
 	cmd.Flags().StringVarP(&opts.Type, "type", "t", "", "Commit type: "+typeList)
-	cmd.Flags().StringVarP(&opts.Scope, "scope", "s", "", "Set optional scope (e.g. auth or ABC-123); pass --scope without a value to prompt")
+	cmd.Flags().StringVarP(&opts.Scope, "scope", "s", "", "Set optional scope (e.g. auth or ABC-123); requires --type. Pass --scope without a value to prompt")
 	if scopeFlag := cmd.Flags().Lookup("scope"); scopeFlag != nil {
 		scopeFlag.NoOptDefVal = scopePromptSentinel
 	}
@@ -72,21 +75,15 @@ fuzmit --no-emojis`,
 	_ = cmd.Flags().MarkDeprecated("geoscope", "use --jira-scope instead")
 	cmd.Flags().BoolVar(&opts.NoEmojis, "no-emojis", false, "Disable emojis in commit-type menus/help (commit subjects are emoji-free)")
 	cmd.Flags().BoolVar(&opts.Override, "override", false, "Bypass main branch protection")
-	cmd.Flags().StringVarP(&opts.Message, "message", "m", "", "Commit description")
+	cmd.Flags().StringVarP(&opts.Message, "message", "m", "", "Commit message")
 
-	cmd.AddCommand(newScopeCommand())
-	cmd.AddCommand(newJiraScopeCommand())
-	cmd.AddCommand(newDefaultsCommand())
+	cmd.AddCommand(newEnvCommand())
 
 	return cmd
 }
 
 func runCommit(cmd *cobra.Command, args []string, opts runOptions) error {
-	cfg, err := LoadConfig()
-	if err != nil {
-		return err
-	}
-	defaults := ResolveDefaults(cfg, os.Getenv)
+	defaults := ResolveDefaults(os.Getenv)
 
 	noEmojis := defaults.NoEmojis || opts.NoEmojis
 	geoScope := defaults.GeoScope || opts.GeoScope
@@ -113,19 +110,32 @@ func runCommit(cmd *cobra.Command, args []string, opts runOptions) error {
 		return nil
 	}
 
-	commitType, err := resolveCommitType(opts.Type, noEmojis)
-	if err != nil {
-		return err
-	}
+	var (
+		commitType  CommitType
+		scope       string
+		description string
+	)
 
-	scope, err := resolveScope(cmd, opts, branch, scopeEnabled, geoScope)
-	if err != nil {
-		return err
-	}
+	if shouldUseUnifiedInteractiveFlow(args, opts) {
+		commitType, scope, description, err = resolveInteractiveCommitInputs(cmd, opts, branch, noEmojis, scopeEnabled, geoScope)
+		if err != nil {
+			return err
+		}
+	} else {
+		commitType, err = resolveCommitType(opts.Type, noEmojis)
+		if err != nil {
+			return err
+		}
 
-	description, err := resolveDescription(cmd, args, opts.Message)
-	if err != nil {
-		return err
+		scope, err = resolveScope(cmd, opts, branch, scopeEnabled, geoScope)
+		if err != nil {
+			return err
+		}
+
+		description, err = resolveDescription(cmd, args, opts.Message)
+		if err != nil {
+			return err
+		}
 	}
 
 	full := BuildCommitMessage(commitType.Name, scope, description)
@@ -141,6 +151,13 @@ func runCommit(cmd *cobra.Command, args []string, opts runOptions) error {
 	}
 	if err != nil {
 		return fmt.Errorf("fuzmit: git commit failed: %w", err)
+	}
+	return nil
+}
+
+func validateFlagDependencies(opts runOptions) error {
+	if opts.ScopeSet && strings.TrimSpace(opts.Type) == "" {
+		return errors.New("fuzmit: --type is required when --scope is provided")
 	}
 	return nil
 }
@@ -172,6 +189,8 @@ func resolveScope(cmd *cobra.Command, opts runOptions, branch string, scopeEnabl
 				return "", fmt.Errorf("fuzmit: invalid extracted Jira scope %q: %w", scope, err)
 			}
 			printInfof(cmd, "Auto-detected Jira scope %q.", scope)
+		} else {
+			printInfo(cmd, "Jira scope auto-detect enabled; no Jira key found in branch, proceeding without scope.")
 		}
 		return scope, nil
 	}
@@ -228,6 +247,81 @@ func resolveDescription(cmd *cobra.Command, args []string, messageFlag string) (
 	return description, nil
 }
 
+func shouldUseUnifiedInteractiveFlow(args []string, opts runOptions) bool {
+	return strings.TrimSpace(opts.Type) == "" &&
+		strings.TrimSpace(opts.Message) == "" &&
+		len(args) == 0
+}
+
+func resolveInteractiveCommitInputs(
+	cmd *cobra.Command,
+	opts runOptions,
+	branch string,
+	noEmojis bool,
+	scopeEnabled bool,
+	geoScope bool,
+) (CommitType, string, string, error) {
+	scopeInputEnabled := false
+	scope := ""
+
+	if geoScope {
+		extracted := ExtractJiraScope(branch)
+		if extracted != "" {
+			if err := ValidateScope(extracted); err != nil {
+				return CommitType{}, "", "", fmt.Errorf("fuzmit: invalid extracted Jira scope %q: %w", extracted, err)
+			}
+		}
+		scope = extracted
+	} else if opts.ScopeSet {
+		if opts.AskScope {
+			scopeInputEnabled = true
+		} else {
+			normalizedScope, err := normalizeScope(opts.Scope)
+			if err != nil {
+				return CommitType{}, "", "", err
+			}
+			scope = normalizedScope
+		}
+	} else if scopeEnabled {
+		scopeInputEnabled = true
+	}
+
+	answers, err := PromptInteractiveCommitFlow(noEmojis, scopeInputEnabled)
+	if err != nil {
+		if errors.Is(err, errSelectionAborted) {
+			return CommitType{}, "", "", errors.New("fuzmit: no commit type selected, aborting")
+		}
+		return CommitType{}, "", "", fmt.Errorf("fuzmit: unable to collect interactive inputs: %w", err)
+	}
+
+	commitType, ok := FindCommitType(answers.Type)
+	if !ok {
+		return CommitType{}, "", "", fmt.Errorf("fuzmit: selected unknown commit type %q", answers.Type)
+	}
+
+	if scopeInputEnabled {
+		normalizedScope, err := normalizeScope(answers.Scope)
+		if err != nil {
+			return CommitType{}, "", "", err
+		}
+		scope = normalizedScope
+	}
+
+	if geoScope {
+		if scope != "" {
+			printInfof(cmd, "Auto-detected Jira scope %q.", scope)
+		} else {
+			printInfo(cmd, "Jira scope auto-detect enabled; no Jira key found in branch, proceeding without scope.")
+		}
+	}
+
+	description := strings.TrimSpace(answers.Description)
+	if description == "" {
+		return CommitType{}, "", "", errors.New("fuzmit: commit description cannot be empty, aborting")
+	}
+	return commitType, scope, description, nil
+}
+
 func typeNames() []string {
 	out := make([]string, 0, len(SupportedTypes))
 	for _, ct := range SupportedTypes {
@@ -236,86 +330,28 @@ func typeNames() []string {
 	return out
 }
 
-func newScopeCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "scope [on|off]",
-		Short: "Get or set default scope prompting",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := LoadConfig()
-			if err != nil {
-				return err
-			}
-
-			if len(args) == 0 {
-				printKeyValue(cmd, "scope", cfg.Scope)
-				return nil
-			}
-
-			v, err := ParseToggleArg(args[0])
-			if err != nil {
-				return err
-			}
-			cfg.Scope = v
-			if err := SaveConfig(cfg); err != nil {
-				return err
-			}
-			printInfof(cmd, "Scope default set to %t.", v)
-			return nil
-		},
-	}
+func newEnvCommand() *cobra.Command {
+	return newEnvCommandWithGetenv(os.Getenv)
 }
 
-func newJiraScopeCommand() *cobra.Command {
+func newEnvCommandWithGetenv(getenv func(string) string) *cobra.Command {
 	return &cobra.Command{
-		Use:     "jira-scope [on|off]",
-		Aliases: []string{"geoscope"},
-		Short:   "Get or set default Jira branch scope extraction",
-		Args:    cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := LoadConfig()
-			if err != nil {
-				return err
-			}
-
-			if len(args) == 0 {
-				printKeyValue(cmd, "jira-scope", cfg.GeoScope)
-				return nil
-			}
-
-			v, err := ParseToggleArg(args[0])
-			if err != nil {
-				return err
-			}
-			cfg.GeoScope = v
-			if err := SaveConfig(cfg); err != nil {
-				return err
-			}
-			printInfof(cmd, "Jira scope default set to %t.", v)
-			return nil
-		},
-	}
-}
-
-func newDefaultsCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "defaults",
-		Short: "Show resolved defaults (config + env)",
+		Use:   "env",
+		Short: "Show effective FUZMIT_* environment defaults",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := LoadConfig()
-			if err != nil {
-				return err
-			}
-			d := ResolveDefaults(cfg, os.Getenv)
-			path, err := ConfigPath()
-			if err != nil {
-				return err
-			}
-			printKeyValue(cmd, "config", path)
-			printKeyValue(cmd, "scope", d.Scope)
-			printKeyValue(cmd, "jira-scope", d.GeoScope)
-			printKeyValue(cmd, "no-emojis", d.NoEmojis)
+			settings := ResolveEnvSettings(getenv)
+			printEnvSettings(cmd, settings)
 			return nil
 		},
 	}
+}
+
+func envSettingSource(setting EnvSetting) string {
+	if !setting.FromEnv {
+		return "default"
+	}
+	if !setting.ValidBool {
+		return fmt.Sprintf("default (invalid: %q)", setting.Raw)
+	}
+	return fmt.Sprintf("env (%q)", setting.Raw)
 }

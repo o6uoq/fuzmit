@@ -8,8 +8,8 @@ Conventional commits with fuzzy type selection and direct CLI flags.
 
 ```bash
 go run . --help
-go run . --type fix --scope auth -m "prevent nil panic"
-go run . --scope -m "prompted scope example"
+go run . --type fix --scope auth -m "fix nil panic"
+go run . --type feat --scope -m "prompted scope example"
 ```
 
 ## Build locally
@@ -32,32 +32,25 @@ git fuzmit --help
 - `-m, --message <description>` set commit description directly
 - `--no-emojis` disable emojis in commit-type picker/help output
 - `--override` bypass main-branch protection
-- `--scope <scope>` set optional scope directly
-- `--scope` (no value) prompt for optional scope interactively
+- `--scope <scope>` set optional scope directly (requires `--type`)
+- `--scope` (no value) prompt for optional scope interactively (requires `--type`)
 - `--type <type>` set commit type directly (`build|chore|ci|docs|feat|fix|perf|refactor|style|test`)
 
 Commit subjects are always emoji-free conventional commits.
 
-## Defaults and config
+## Environment defaults
 
-Environment overrides:
+`fuzmit` is env-driven. If a variable is unset or invalid, it defaults to `false`.
 
-- `FUZMIT_SCOPE=true|false` default prompt for scope on each run
-- `FUZMIT_JIRA_SCOPE=true|false` default auto Jira scope extraction from branch name
-- `FUZMIT_NO_EMOJIS=true|false` default no emoji in picker/help list items
+- `FUZMIT_SCOPE=true|false` prompt for scope by default when `--scope` is not provided
+- `FUZMIT_JIRA_SCOPE=true|false` auto-detect Jira scope from branch name; when true, both `--scope` and `FUZMIT_SCOPE` are ignored
+- `FUZMIT_NO_EMOJIS=true|false` disable emojis in picker/help output
 
-Persist defaults:
+Inspect current resolved env settings:
 
 ```bash
-fuzmit scope on
-fuzmit jira-scope on
-fuzmit defaults
+fuzmit env
 ```
-
-Config path:
-
-- macOS: `~/Library/Application Support/fuzmit/config.json`
-- Linux: `${XDG_CONFIG_HOME:-~/.config}/fuzmit/config.json`
 
 ## Jira scope detection
 
