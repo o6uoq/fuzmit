@@ -64,7 +64,6 @@ func PromptInteractiveCommitFlow(noEmojis bool, askScope bool) (interactiveCommi
 		huh.NewSelect[string]().
 			Title("Pick commit type").
 			Description("Press / to filter, Enter to select").
-			Height(len(options)).
 			Options(options...).
 			Value(&answers.Type),
 	}
