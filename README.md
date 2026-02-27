@@ -8,8 +8,8 @@ Conventional commits with fuzzy type selection and direct CLI flags.
 
 ```bash
 go run . --help
-go run . --type fix --scope auth -m "prevent nil panic"
-go run . --scope -m "prompted scope example"
+go run . --type fix --scope parser -m "handle nil pointer during validation"
+go run . --type feat --scope -m "prompted scope example"
 ```
 
 ## Build locally
@@ -32,8 +32,8 @@ git fuzmit --help
 - `-m, --message <description>` set commit description directly
 - `--no-emojis` disable emojis in commit-type picker/help output
 - `--override` bypass main-branch protection
-- `--scope <scope>` set optional scope directly
-- `--scope` (no value) prompt for optional scope interactively
+- `--scope <scope>` set optional scope directly (requires `--type`)
+- `--scope` (no value) prompt for optional scope interactively (requires `--type`)
 - `--type <type>` set commit type directly (`build|chore|ci|docs|feat|fix|perf|refactor|style|test`)
 
 Commit subjects are always emoji-free conventional commits.

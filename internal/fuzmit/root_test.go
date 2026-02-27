@@ -1,0 +1,117 @@
+package fuzmit
+
+import (
+	"bytes"
+	"strings"
+	"testing"
+)
+
+func TestValidateFlagDependencies(t *testing.T) {
+	tests := []struct {
+		name    string
+		opts    runOptions
+		wantErr string
+	}{
+		{
+			name: "scope with explicit type",
+			opts: runOptions{
+				Type:     "fix",
+				ScopeSet: true,
+				Scope:    "parser",
+			},
+		},
+		{
+			name: "scope prompt with explicit type",
+			opts: runOptions{
+				Type:     "feat",
+				ScopeSet: true,
+				AskScope: true,
+			},
+		},
+		{
+			name: "scope without type fails",
+			opts: runOptions{
+				ScopeSet: true,
+				Scope:    "auth",
+			},
+			wantErr: "--type is required when --scope is provided",
+		},
+		{
+			name: "no scope no type allowed for interactive flow",
+			opts: runOptions{},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateFlagDependencies(tc.opts)
+			if tc.wantErr == "" && err != nil {
+				t.Fatalf("validateFlagDependencies() unexpected error: %v", err)
+			}
+			if tc.wantErr != "" {
+				if err == nil {
+					t.Fatalf("validateFlagDependencies() expected error containing %q", tc.wantErr)
+				}
+				if !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("validateFlagDependencies()=%q want substring %q", err.Error(), tc.wantErr)
+				}
+			}
+		})
+	}
+}
+
+func TestRootCommandScopeWithoutTypeFailsFast(t *testing.T) {
+	cmd := NewRootCommand()
+	cmd.SetArgs([]string{"--scope=auth", "-m", "fix parser panic"})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when --scope is provided without --type")
+	}
+	if !strings.Contains(err.Error(), "--type is required when --scope is provided") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestEnvCommandOutput(t *testing.T) {
+	cmd := newEnvCommandWithGetenv(func(key string) string {
+		switch key {
+		case EnvScope:
+			return "true"
+		case EnvGeoScope:
+			return "maybe"
+		case EnvNoEmojis:
+			return ""
+		default:
+			return ""
+		}
+	})
+
+	out := &bytes.Buffer{}
+	cmd.SetOut(out)
+	cmd.SetErr(out)
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("env command failed: %v", err)
+	}
+
+	got := out.String()
+	for _, want := range []string{
+		"VARIABLE",
+		"VALUE",
+		"SOURCE",
+		EnvScope,
+		"env (\"true\")",
+		EnvGeoScope,
+		"default (invalid: \"maybe\")",
+		EnvNoEmojis,
+		"default",
+		"FUZMIT_JIRA_SCOPE=true ignores --scope and FUZMIT_SCOPE",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected output to contain %q, got %q", want, got)
+		}
+	}
+}

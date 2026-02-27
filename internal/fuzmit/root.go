@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 )
@@ -34,10 +35,10 @@ func NewRootCommand() *cobra.Command {
 fuzmit
 
 # Explicit type/scope/message:
-fuzmit --type fix --scope auth -m "prevent nil panic"
+fuzmit --type fix --scope parser -m "handle nil pointer during validation"
 
 # Prompt for optional scope:
-fuzmit --scope
+fuzmit --type feat --scope
 
 # Disable emojis in picker/help:
 fuzmit --no-emojis`,
@@ -53,13 +54,16 @@ fuzmit --no-emojis`,
 				v, _ := cmd.Flags().GetBool("geoscope")
 				localOpts.GeoScope = v
 			}
+			if err := validateFlagDependencies(localOpts); err != nil {
+				return err
+			}
 			return runCommit(cmd, args, localOpts)
 		},
 	}
 
 	typeList := strings.Join(typeNames(), "|")
 	cmd.Flags().StringVarP(&opts.Type, "type", "t", "", "Commit type: "+typeList)
-	cmd.Flags().StringVarP(&opts.Scope, "scope", "s", "", "Set optional scope (e.g. auth or ABC-123); pass --scope without a value to prompt")
+	cmd.Flags().StringVarP(&opts.Scope, "scope", "s", "", "Set optional scope (e.g. auth or ABC-123); requires --type. Pass --scope without a value to prompt")
 	if scopeFlag := cmd.Flags().Lookup("scope"); scopeFlag != nil {
 		scopeFlag.NoOptDefVal = scopePromptSentinel
 	}
@@ -139,6 +143,13 @@ func runCommit(cmd *cobra.Command, args []string, opts runOptions) error {
 	return nil
 }
 
+func validateFlagDependencies(opts runOptions) error {
+	if opts.ScopeSet && strings.TrimSpace(opts.Type) == "" {
+		return errors.New("fuzmit: --type is required when --scope is provided")
+	}
+	return nil
+}
+
 func resolveCommitType(typeFlag string, noEmojis bool) (CommitType, error) {
 	if typeFlag != "" {
 		ct, ok := FindCommitType(typeFlag)
@@ -166,6 +177,8 @@ func resolveScope(cmd *cobra.Command, opts runOptions, branch string, scopeEnabl
 				return "", fmt.Errorf("fuzmit: invalid extracted Jira scope %q: %w", scope, err)
 			}
 			printInfof(cmd, "Auto-detected Jira scope %q.", scope)
+		} else {
+			printInfo(cmd, "Jira scope auto-detect enabled; no Jira key found in branch, proceeding without scope.")
 		}
 		return scope, nil
 	}
@@ -231,15 +244,36 @@ func typeNames() []string {
 }
 
 func newEnvCommand() *cobra.Command {
+	return newEnvCommandWithGetenv(os.Getenv)
+}
+
+func newEnvCommandWithGetenv(getenv func(string) string) *cobra.Command {
 	return &cobra.Command{
 		Use:   "env",
 		Short: "Show effective FUZMIT_* environment defaults",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			for _, setting := range ResolveEnvSettings(os.Getenv) {
-				printKeyValue(cmd, setting.Name, describeEnvSetting(setting))
+			w := cmd.OutOrStdout()
+			settings := ResolveEnvSettings(getenv)
+
+			_, _ = fmt.Fprintln(w, "VARIABLE           VALUE  SOURCE")
+			tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+			for _, setting := range settings {
+				_, _ = fmt.Fprintf(tw, "%s\t%t\t%s\n", setting.Name, setting.Value, envSettingSource(setting))
 			}
-			printInfo(cmd, "When FUZMIT_JIRA_SCOPE=true, --scope and FUZMIT_SCOPE are ignored.")
+			_ = tw.Flush()
+			_, _ = fmt.Fprintln(w)
+			_, _ = fmt.Fprintln(w, "NOTE  FUZMIT_JIRA_SCOPE=true ignores --scope and FUZMIT_SCOPE.")
 			return nil
 		},
 	}
+}
+
+func envSettingSource(setting EnvSetting) string {
+	if !setting.FromEnv {
+		return "default"
+	}
+	if !setting.ValidBool {
+		return fmt.Sprintf("default (invalid: %q)", setting.Raw)
+	}
+	return fmt.Sprintf("env (%q)", setting.Raw)
 }

@@ -1,9 +1,6 @@
 package fuzmit
 
-import (
-	"fmt"
-	"strings"
-)
+import "strings"
 
 const (
 	EnvScope    = "FUZMIT_SCOPE"
@@ -76,14 +73,4 @@ func parseBool(raw string) (bool, bool) {
 	}
 
 	return false, false
-}
-
-func describeEnvSetting(setting EnvSetting) string {
-	if !setting.FromEnv {
-		return fmt.Sprintf("%t (default)", setting.Value)
-	}
-	if !setting.ValidBool {
-		return fmt.Sprintf("%t (default; invalid env value %q)", setting.Value, setting.Raw)
-	}
-	return fmt.Sprintf("%t (from env: %q)", setting.Value, setting.Raw)
 }
