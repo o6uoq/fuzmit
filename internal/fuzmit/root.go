@@ -75,7 +75,7 @@ fuzmit --no-emojis`,
 	_ = cmd.Flags().MarkDeprecated("geoscope", "use --jira-scope instead")
 	cmd.Flags().BoolVar(&opts.NoEmojis, "no-emojis", false, "Disable emojis in commit-type menus/help (commit subjects are emoji-free)")
 	cmd.Flags().BoolVar(&opts.Override, "override", false, "Bypass main branch protection")
-	cmd.Flags().StringVarP(&opts.Message, "message", "m", "", "Commit description")
+	cmd.Flags().StringVarP(&opts.Message, "message", "m", "", "Commit message")
 
 	cmd.AddCommand(newEnvCommand())
 

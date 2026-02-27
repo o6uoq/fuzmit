@@ -76,7 +76,7 @@ func PromptInteractiveCommitFlow(noEmojis bool, askScope bool) (interactiveCommi
 	}
 
 	fields = append(fields, huh.NewInput().
-		Title("Commit description").
+		Title("Commit message").
 		Validate(func(v string) error {
 			if strings.TrimSpace(v) == "" {
 				return errors.New("commit description cannot be empty")
