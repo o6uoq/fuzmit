@@ -44,6 +44,63 @@ func printKeyValue(cmd *cobra.Command, key string, value any) {
 	_, _ = fmt.Fprintf(w, "%s: %s\n", keyStyle.Render(key), valueStyle.Render(fmt.Sprint(value)))
 }
 
+func printEnvSettings(cmd *cobra.Command, settings []EnvSetting) {
+	w := cmd.OutOrStdout()
+	nameCol := "VARIABLE"
+	valueCol := "VALUE"
+	sourceCol := "SOURCE"
+
+	nameWidth := len(nameCol)
+	valueWidth := len(valueCol)
+	for _, setting := range settings {
+		if len(setting.Name) > nameWidth {
+			nameWidth = len(setting.Name)
+		}
+	}
+
+	note := "FUZMIT_JIRA_SCOPE=true ignores --scope and FUZMIT_SCOPE."
+	if !supportsStyling(w) {
+		_, _ = fmt.Fprintf(w, "%-*s  %-*s  %s\n", nameWidth, nameCol, valueWidth, valueCol, sourceCol)
+		for _, setting := range settings {
+			_, _ = fmt.Fprintf(w, "%-*s  %-*t  %s\n", nameWidth, setting.Name, valueWidth, setting.Value, envSettingSource(setting))
+		}
+		_, _ = fmt.Fprintln(w)
+		_, _ = fmt.Fprintf(w, "NOTE  %s\n", note)
+		return
+	}
+
+	cs := defaultFangColorScheme()
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(cs.Title)
+	nameStyle := lipgloss.NewStyle().Bold(true).Foreground(cs.Command)
+	valueTrueStyle := lipgloss.NewStyle().Bold(true).Foreground(cs.Flag)
+	valueFalseStyle := lipgloss.NewStyle().Foreground(cs.Comment)
+	sourceStyle := lipgloss.NewStyle().Foreground(cs.Base)
+	noteLabelStyle := lipgloss.NewStyle().Bold(true).Foreground(cs.Title)
+	noteTextStyle := lipgloss.NewStyle().Foreground(cs.Base)
+
+	_, _ = fmt.Fprintf(
+		w,
+		"%s  %s  %s\n",
+		headerStyle.Render(fmt.Sprintf("%-*s", nameWidth, nameCol)),
+		headerStyle.Render(fmt.Sprintf("%-*s", valueWidth, valueCol)),
+		headerStyle.Render(sourceCol),
+	)
+
+	for _, setting := range settings {
+		nameCell := nameStyle.Render(fmt.Sprintf("%-*s", nameWidth, setting.Name))
+		valueRaw := fmt.Sprintf("%-*t", valueWidth, setting.Value)
+		valueCell := valueFalseStyle.Render(valueRaw)
+		if setting.Value {
+			valueCell = valueTrueStyle.Render(valueRaw)
+		}
+		sourceCell := sourceStyle.Render(envSettingSource(setting))
+		_, _ = fmt.Fprintf(w, "%s  %s  %s\n", nameCell, valueCell, sourceCell)
+	}
+
+	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintf(w, "%s  %s\n", noteLabelStyle.Render("NOTE"), noteTextStyle.Render(note))
+}
+
 func printStatus(w io.Writer, level outputLevel, message string) {
 	msg := strings.TrimSpace(message)
 	if msg == "" {

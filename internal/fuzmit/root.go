@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 )
@@ -35,7 +34,7 @@ func NewRootCommand() *cobra.Command {
 fuzmit
 
 # Explicit type/scope/message:
-fuzmit --type fix --scope parser -m "handle nil pointer during validation"
+fuzmit --type fix --scope auth -m "fix nil panic"
 
 # Prompt for optional scope:
 fuzmit --type feat --scope
@@ -252,17 +251,8 @@ func newEnvCommandWithGetenv(getenv func(string) string) *cobra.Command {
 		Use:   "env",
 		Short: "Show effective FUZMIT_* environment defaults",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			w := cmd.OutOrStdout()
 			settings := ResolveEnvSettings(getenv)
-
-			_, _ = fmt.Fprintln(w, "VARIABLE           VALUE  SOURCE")
-			tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-			for _, setting := range settings {
-				_, _ = fmt.Fprintf(tw, "%s\t%t\t%s\n", setting.Name, setting.Value, envSettingSource(setting))
-			}
-			_ = tw.Flush()
-			_, _ = fmt.Fprintln(w)
-			_, _ = fmt.Fprintln(w, "NOTE  FUZMIT_JIRA_SCOPE=true ignores --scope and FUZMIT_SCOPE.")
+			printEnvSettings(cmd, settings)
 			return nil
 		},
 	}

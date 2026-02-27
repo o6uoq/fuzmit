@@ -8,7 +8,7 @@ Conventional commits with fuzzy type selection and direct CLI flags.
 
 ```bash
 go run . --help
-go run . --type fix --scope parser -m "handle nil pointer during validation"
+go run . --type fix --scope auth -m "fix nil panic"
 go run . --type feat --scope -m "prompted scope example"
 ```
 
