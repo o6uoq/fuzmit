@@ -110,19 +110,32 @@ func runCommit(cmd *cobra.Command, args []string, opts runOptions) error {
 		return nil
 	}
 
-	commitType, err := resolveCommitType(opts.Type, noEmojis)
-	if err != nil {
-		return err
-	}
+	var (
+		commitType  CommitType
+		scope       string
+		description string
+	)
 
-	scope, err := resolveScope(cmd, opts, branch, scopeEnabled, geoScope)
-	if err != nil {
-		return err
-	}
+	if shouldUseUnifiedInteractiveFlow(args, opts) {
+		commitType, scope, description, err = resolveInteractiveCommitInputs(cmd, opts, branch, noEmojis, scopeEnabled, geoScope)
+		if err != nil {
+			return err
+		}
+	} else {
+		commitType, err = resolveCommitType(opts.Type, noEmojis)
+		if err != nil {
+			return err
+		}
 
-	description, err := resolveDescription(cmd, args, opts.Message)
-	if err != nil {
-		return err
+		scope, err = resolveScope(cmd, opts, branch, scopeEnabled, geoScope)
+		if err != nil {
+			return err
+		}
+
+		description, err = resolveDescription(cmd, args, opts.Message)
+		if err != nil {
+			return err
+		}
 	}
 
 	full := BuildCommitMessage(commitType.Name, scope, description)
@@ -232,6 +245,81 @@ func resolveDescription(cmd *cobra.Command, args []string, messageFlag string) (
 		return "", errors.New("fuzmit: commit description cannot be empty, aborting")
 	}
 	return description, nil
+}
+
+func shouldUseUnifiedInteractiveFlow(args []string, opts runOptions) bool {
+	return strings.TrimSpace(opts.Type) == "" &&
+		strings.TrimSpace(opts.Message) == "" &&
+		len(args) == 0
+}
+
+func resolveInteractiveCommitInputs(
+	cmd *cobra.Command,
+	opts runOptions,
+	branch string,
+	noEmojis bool,
+	scopeEnabled bool,
+	geoScope bool,
+) (CommitType, string, string, error) {
+	scopeInputEnabled := false
+	scope := ""
+
+	if geoScope {
+		extracted := ExtractJiraScope(branch)
+		if extracted != "" {
+			if err := ValidateScope(extracted); err != nil {
+				return CommitType{}, "", "", fmt.Errorf("fuzmit: invalid extracted Jira scope %q: %w", extracted, err)
+			}
+		}
+		scope = extracted
+	} else if opts.ScopeSet {
+		if opts.AskScope {
+			scopeInputEnabled = true
+		} else {
+			normalizedScope, err := normalizeScope(opts.Scope)
+			if err != nil {
+				return CommitType{}, "", "", err
+			}
+			scope = normalizedScope
+		}
+	} else if scopeEnabled {
+		scopeInputEnabled = true
+	}
+
+	answers, err := PromptInteractiveCommitFlow(cmd.InOrStdin(), cmd.OutOrStdout(), noEmojis, scopeInputEnabled)
+	if err != nil {
+		if errors.Is(err, errSelectionAborted) {
+			return CommitType{}, "", "", errors.New("fuzmit: no commit type selected, aborting")
+		}
+		return CommitType{}, "", "", fmt.Errorf("fuzmit: unable to collect interactive inputs: %w", err)
+	}
+
+	commitType, ok := FindCommitType(answers.Type)
+	if !ok {
+		return CommitType{}, "", "", fmt.Errorf("fuzmit: selected unknown commit type %q", answers.Type)
+	}
+
+	if scopeInputEnabled {
+		normalizedScope, err := normalizeScope(answers.Scope)
+		if err != nil {
+			return CommitType{}, "", "", err
+		}
+		scope = normalizedScope
+	}
+
+	if geoScope {
+		if scope != "" {
+			printInfof(cmd, "Auto-detected Jira scope %q.", scope)
+		} else {
+			printInfo(cmd, "Jira scope auto-detect enabled; no Jira key found in branch, proceeding without scope.")
+		}
+	}
+
+	description := strings.TrimSpace(answers.Description)
+	if description == "" {
+		return CommitType{}, "", "", errors.New("fuzmit: commit description cannot be empty, aborting")
+	}
+	return commitType, scope, description, nil
 }
 
 func typeNames() []string {

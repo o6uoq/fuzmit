@@ -115,3 +115,46 @@ func TestEnvCommandOutput(t *testing.T) {
 		}
 	}
 }
+
+func TestShouldUseUnifiedInteractiveFlow(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		opts runOptions
+		want bool
+	}{
+		{
+			name: "fully interactive with no flags",
+			args: nil,
+			opts: runOptions{},
+			want: true,
+		},
+		{
+			name: "explicit type disables unified flow",
+			args: nil,
+			opts: runOptions{Type: "fix"},
+			want: false,
+		},
+		{
+			name: "message flag disables unified flow",
+			args: nil,
+			opts: runOptions{Message: "fix parser panic"},
+			want: false,
+		},
+		{
+			name: "positional description disables unified flow",
+			args: []string{"fix parser panic"},
+			opts: runOptions{},
+			want: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := shouldUseUnifiedInteractiveFlow(tc.args, tc.opts)
+			if got != tc.want {
+				t.Fatalf("shouldUseUnifiedInteractiveFlow()=%t want %t", got, tc.want)
+			}
+		})
+	}
+}
