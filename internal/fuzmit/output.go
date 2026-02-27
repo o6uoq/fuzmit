@@ -72,18 +72,14 @@ func printEnvSettings(cmd *cobra.Command, settings []EnvSetting) {
 	cs := defaultFangColorScheme()
 	headerStyle := lipgloss.NewStyle().
 		Bold(true).
-		Padding(0, 1).
-		Foreground(cs.Codeblock).
-		Background(cs.Title)
+		Foreground(cs.Command)
 	nameStyle := lipgloss.NewStyle().Bold(true).Foreground(cs.Command)
 	valueTrueStyle := lipgloss.NewStyle().Bold(true).Foreground(cs.Flag)
 	valueFalseStyle := lipgloss.NewStyle().Foreground(cs.Base)
 	sourceStyle := lipgloss.NewStyle().Foreground(cs.Base)
 	noteLabelStyle := lipgloss.NewStyle().
 		Bold(true).
-		Padding(0, 1).
-		Foreground(cs.Codeblock).
-		Background(cs.Title)
+		Foreground(cs.Command)
 	noteTextStyle := lipgloss.NewStyle().Foreground(cs.Base)
 
 	_, _ = fmt.Fprintf(
