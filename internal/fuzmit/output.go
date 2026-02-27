@@ -77,6 +77,10 @@ func PrintHelpNotes(w io.Writer) {
 
 	_, _ = fmt.Fprintf(w, "  %s\n\n", title)
 	_, _ = fmt.Fprintf(w, "    %s\n\n", helpNotesLine(colorize))
+	for _, line := range helpEnvLines() {
+		_, _ = fmt.Fprintf(w, "    %s\n", line)
+	}
+	_, _ = fmt.Fprintln(w)
 }
 
 func supportsStyling(w io.Writer) bool {

@@ -74,19 +74,13 @@ fuzmit --no-emojis`,
 	cmd.Flags().BoolVar(&opts.Override, "override", false, "Bypass main branch protection")
 	cmd.Flags().StringVarP(&opts.Message, "message", "m", "", "Commit description")
 
-	cmd.AddCommand(newScopeCommand())
-	cmd.AddCommand(newJiraScopeCommand())
-	cmd.AddCommand(newDefaultsCommand())
+	cmd.AddCommand(newEnvCommand())
 
 	return cmd
 }
 
 func runCommit(cmd *cobra.Command, args []string, opts runOptions) error {
-	cfg, err := LoadConfig()
-	if err != nil {
-		return err
-	}
-	defaults := ResolveDefaults(cfg, os.Getenv)
+	defaults := ResolveDefaults(os.Getenv)
 
 	noEmojis := defaults.NoEmojis || opts.NoEmojis
 	geoScope := defaults.GeoScope || opts.GeoScope
@@ -236,85 +230,15 @@ func typeNames() []string {
 	return out
 }
 
-func newScopeCommand() *cobra.Command {
+func newEnvCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "scope [on|off]",
-		Short: "Get or set default scope prompting",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := LoadConfig()
-			if err != nil {
-				return err
-			}
-
-			if len(args) == 0 {
-				printKeyValue(cmd, "scope", cfg.Scope)
-				return nil
-			}
-
-			v, err := ParseToggleArg(args[0])
-			if err != nil {
-				return err
-			}
-			cfg.Scope = v
-			if err := SaveConfig(cfg); err != nil {
-				return err
-			}
-			printInfof(cmd, "Scope default set to %t.", v)
-			return nil
-		},
-	}
-}
-
-func newJiraScopeCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:     "jira-scope [on|off]",
-		Aliases: []string{"geoscope"},
-		Short:   "Get or set default Jira branch scope extraction",
-		Args:    cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := LoadConfig()
-			if err != nil {
-				return err
-			}
-
-			if len(args) == 0 {
-				printKeyValue(cmd, "jira-scope", cfg.GeoScope)
-				return nil
-			}
-
-			v, err := ParseToggleArg(args[0])
-			if err != nil {
-				return err
-			}
-			cfg.GeoScope = v
-			if err := SaveConfig(cfg); err != nil {
-				return err
-			}
-			printInfof(cmd, "Jira scope default set to %t.", v)
-			return nil
-		},
-	}
-}
-
-func newDefaultsCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "defaults",
-		Short: "Show resolved defaults (config + env)",
+		Use:   "env",
+		Short: "Show effective FUZMIT_* environment defaults",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := LoadConfig()
-			if err != nil {
-				return err
+			for _, setting := range ResolveEnvSettings(os.Getenv) {
+				printKeyValue(cmd, setting.Name, describeEnvSetting(setting))
 			}
-			d := ResolveDefaults(cfg, os.Getenv)
-			path, err := ConfigPath()
-			if err != nil {
-				return err
-			}
-			printKeyValue(cmd, "config", path)
-			printKeyValue(cmd, "scope", d.Scope)
-			printKeyValue(cmd, "jira-scope", d.GeoScope)
-			printKeyValue(cmd, "no-emojis", d.NoEmojis)
+			printInfo(cmd, "When FUZMIT_JIRA_SCOPE=true, --scope and FUZMIT_SCOPE are ignored.")
 			return nil
 		},
 	}

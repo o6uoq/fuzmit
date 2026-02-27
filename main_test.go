@@ -11,7 +11,7 @@ func TestHelpRequested(t *testing.T) {
 		{name: "root help command", args: []string{"help"}, want: true},
 		{name: "root long help flag", args: []string{"--help"}, want: true},
 		{name: "root short help flag", args: []string{"-h"}, want: true},
-		{name: "subcommand help flag", args: []string{"scope", "--help"}, want: true},
+		{name: "subcommand help flag", args: []string{"env", "--help"}, want: true},
 		{name: "regular command", args: []string{"--type", "fix", "-m", "trim panic"}, want: false},
 		{name: "description value help", args: []string{"-m", "help"}, want: false},
 		{name: "separator before flag", args: []string{"--", "--help"}, want: false},

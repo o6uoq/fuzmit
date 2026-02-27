@@ -55,4 +55,13 @@ func TestPrintHelpNotesFallback(t *testing.T) {
 	if !bytes.Contains([]byte(got), []byte(conventionalCommitsSpecURL)) {
 		t.Fatalf("expected Conventional Commits URL, got %q", got)
 	}
+	if !bytes.Contains([]byte(got), []byte(EnvGeoScope)) {
+		t.Fatalf("expected %s note, got %q", EnvGeoScope, got)
+	}
+	if !bytes.Contains([]byte(got), []byte(EnvScope)) {
+		t.Fatalf("expected %s note, got %q", EnvScope, got)
+	}
+	if !bytes.Contains([]byte(got), []byte(EnvNoEmojis)) {
+		t.Fatalf("expected %s note, got %q", EnvNoEmojis, got)
+	}
 }

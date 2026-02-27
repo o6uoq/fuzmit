@@ -38,26 +38,19 @@ git fuzmit --help
 
 Commit subjects are always emoji-free conventional commits.
 
-## Defaults and config
+## Environment defaults
 
-Environment overrides:
+`fuzmit` is env-driven. If a variable is unset or invalid, it defaults to `false`.
 
-- `FUZMIT_SCOPE=true|false` default prompt for scope on each run
-- `FUZMIT_JIRA_SCOPE=true|false` default auto Jira scope extraction from branch name
-- `FUZMIT_NO_EMOJIS=true|false` default no emoji in picker/help list items
+- `FUZMIT_SCOPE=true|false` prompt for scope by default when `--scope` is not provided
+- `FUZMIT_JIRA_SCOPE=true|false` auto-detect Jira scope from branch name; when true, both `--scope` and `FUZMIT_SCOPE` are ignored
+- `FUZMIT_NO_EMOJIS=true|false` disable emojis in picker/help output
 
-Persist defaults:
+Inspect current resolved env settings:
 
 ```bash
-fuzmit scope on
-fuzmit jira-scope on
-fuzmit defaults
+fuzmit env
 ```
-
-Config path:
-
-- macOS: `~/Library/Application Support/fuzmit/config.json`
-- Linux: `${XDG_CONFIG_HOME:-~/.config}/fuzmit/config.json`
 
 ## Jira scope detection
 
