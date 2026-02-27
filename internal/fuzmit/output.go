@@ -81,8 +81,8 @@ func printEnvSettings(cmd *cobra.Command, settings []EnvSetting) {
 	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(cs.Command)
 	nameStyle := lipgloss.NewStyle().Bold(true).Foreground(cs.Program)
 	valueTrueStyle := lipgloss.NewStyle().Bold(true).Foreground(cs.Flag)
-	valueFalseStyle := lipgloss.NewStyle().Foreground(cs.Base)
-	sourceStyle := lipgloss.NewStyle().Foreground(cs.Comment)
+	valueFalseStyle := lipgloss.NewStyle().Foreground(cs.FlagDefault)
+	sourceStyle := lipgloss.NewStyle().Foreground(cs.FlagDefault)
 
 	_, _ = fmt.Fprintf(
 		w,
