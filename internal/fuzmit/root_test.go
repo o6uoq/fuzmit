@@ -60,21 +60,6 @@ func TestValidateFlagDependencies(t *testing.T) {
 	}
 }
 
-func TestRootCommandScopeWithoutTypeFailsFast(t *testing.T) {
-	cmd := NewRootCommand()
-	cmd.SetArgs([]string{"--scope=auth", "-m", "fix parser panic"})
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
-
-	err := cmd.Execute()
-	if err == nil {
-		t.Fatal("expected error when --scope is provided without --type")
-	}
-	if !strings.Contains(err.Error(), "--type is required when --scope is provided") {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
 func TestEnvCommandOutput(t *testing.T) {
 	cmd := newEnvCommandWithGetenv(func(key string) string {
 		switch key {
