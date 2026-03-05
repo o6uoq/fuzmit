@@ -15,14 +15,27 @@ func TestCLIContracts_TypeScopeAndEnvMatrix(t *testing.T) {
 		wantErr     string
 	}{
 		{
-			name:        "type and message",
+			name:        "type and message with emoji",
 			args:        []string{"--override", "--type", "fix", "-m", "patch parser"},
+			wantSubject: "🔧 fix: patch parser",
+		},
+		{
+			name:        "type scope and message with emoji",
+			args:        []string{"--override", "--type", "fix", "--scope=auth", "-m", "patch parser"},
+			wantSubject: "🔧 fix(auth): patch parser",
+		},
+		{
+			name:        "no-emojis omits emoji from subject",
+			args:        []string{"--override", "--type", "fix", "--no-emojis", "-m", "patch parser"},
 			wantSubject: "fix: patch parser",
 		},
 		{
-			name:        "type scope and message",
-			args:        []string{"--override", "--type", "fix", "--scope=auth", "-m", "patch parser"},
-			wantSubject: "fix(auth): patch parser",
+			name: "no-emojis via env omits emoji",
+			env: map[string]string{
+				EnvNoEmojis: "true",
+			},
+			args:        []string{"--override", "--type", "fix", "-m", "patch parser"},
+			wantSubject: "fix: patch parser",
 		},
 		{
 			name:    "scope without type errors",
@@ -35,7 +48,7 @@ func TestCLIContracts_TypeScopeAndEnvMatrix(t *testing.T) {
 				EnvGeoScope: "true",
 			},
 			args:        []string{"--override", "--type", "fix", "-m", "patch parser"},
-			wantSubject: "fix(ABC-123): patch parser",
+			wantSubject: "🔧 fix(ABC-123): patch parser",
 		},
 		{
 			name: "scope env prompt blank keeps no scope",
@@ -44,7 +57,7 @@ func TestCLIContracts_TypeScopeAndEnvMatrix(t *testing.T) {
 			},
 			stdin:       "\n",
 			args:        []string{"--override", "--type", "docs", "-m", "update readme"},
-			wantSubject: "docs: update readme",
+			wantSubject: "📚 docs: update readme",
 		},
 		{
 			name: "scope env prompt provided value uses scope",
@@ -53,7 +66,7 @@ func TestCLIContracts_TypeScopeAndEnvMatrix(t *testing.T) {
 			},
 			stdin:       "cli\n",
 			args:        []string{"--override", "--type", "docs", "-m", "update readme"},
-			wantSubject: "docs(cli): update readme",
+			wantSubject: "📚 docs(cli): update readme",
 		},
 	}
 

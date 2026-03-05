@@ -34,7 +34,7 @@ func SelectCommitType(noEmojis bool) (CommitType, error) {
 
 	ct, ok := FindCommitType(selectedType)
 	if !ok {
-		return CommitType{}, fmt.Errorf("fuzmit: selected unknown commit type %q", selectedType)
+		return CommitType{}, fmt.Errorf("selected unknown commit type %q", selectedType)
 	}
 	return ct, nil
 }

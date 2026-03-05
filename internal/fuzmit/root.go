@@ -41,7 +41,7 @@ fuzmit --type fix --scope auth -m "fix nil panic"
 # Prompt for optional scope:
 fuzmit --type feat --scope
 
-# Disable emojis in picker/help:
+# Disable emojis in commit subjects/picker/help:
 fuzmit --no-emojis`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -75,7 +75,7 @@ fuzmit --no-emojis`,
 	cmd.Flags().Bool("geoscope", false, "Deprecated alias for --jira-scope")
 	_ = cmd.Flags().MarkHidden("geoscope")
 	_ = cmd.Flags().MarkDeprecated("geoscope", "use --jira-scope instead")
-	cmd.Flags().BoolVar(&opts.NoEmojis, "no-emojis", false, "Disable emojis in commit-type menus/help (commit subjects are emoji-free)")
+	cmd.Flags().BoolVar(&opts.NoEmojis, "no-emojis", false, "Disable emojis in commit subjects, picker menus, and help output")
 	cmd.Flags().BoolVar(&opts.Override, "override", false, "Bypass main branch protection")
 	cmd.Flags().StringVarP(&opts.Message, "message", "m", "", "Commit message")
 
@@ -100,7 +100,7 @@ func runCommit(cmd *cobra.Command, args []string, opts runOptions) error {
 		return err
 	}
 	if branch == "main" && !opts.Override {
-		return errors.New("fuzmit: you are on the main branch; use --override to bypass this check")
+		return errors.New("you are on the main branch; use --override to bypass this check")
 	}
 
 	hasStaged, err := HasStagedChanges()
@@ -140,9 +140,13 @@ func runCommit(cmd *cobra.Command, args []string, opts runOptions) error {
 		}
 	}
 
-	full := BuildCommitMessage(commitType.Name, scope, description)
+	emoji := commitType.Emoji
+	if noEmojis {
+		emoji = ""
+	}
+	full := BuildCommitMessage(emoji, commitType.Name, scope, description)
 	if err := ValidateConventionalSubject(full); err != nil {
-		return fmt.Errorf("fuzmit: %w", err)
+		return err
 	}
 
 	printCommit(cmd, full)
@@ -152,14 +156,14 @@ func runCommit(cmd *cobra.Command, args []string, opts runOptions) error {
 		cmd.Println(output)
 	}
 	if err != nil {
-		return fmt.Errorf("fuzmit: git commit failed: %w", err)
+		return fmt.Errorf("git commit failed: %w", err)
 	}
 	return nil
 }
 
 func validateFlagDependencies(opts runOptions) error {
 	if opts.ScopeSet && strings.TrimSpace(opts.Type) == "" {
-		return errors.New("fuzmit: --type is required when --scope is provided")
+		return errors.New("--type is required when --scope is provided")
 	}
 	return nil
 }
@@ -168,7 +172,7 @@ func resolveCommitType(typeFlag string, noEmojis bool) (CommitType, error) {
 	if typeFlag != "" {
 		ct, ok := FindCommitType(typeFlag)
 		if !ok {
-			return CommitType{}, fmt.Errorf("fuzmit: invalid --type %q", typeFlag)
+			return CommitType{}, fmt.Errorf("invalid --type %q", typeFlag)
 		}
 		return ct, nil
 	}
@@ -176,9 +180,9 @@ func resolveCommitType(typeFlag string, noEmojis bool) (CommitType, error) {
 	ct, err := SelectCommitType(noEmojis)
 	if err != nil {
 		if errors.Is(err, errSelectionAborted) {
-			return CommitType{}, errors.New("fuzmit: no commit type selected, aborting")
+			return CommitType{}, errors.New("no commit type selected, aborting")
 		}
-		return CommitType{}, fmt.Errorf("fuzmit: unable to select commit type: %w", err)
+		return CommitType{}, fmt.Errorf("unable to select commit type: %w", err)
 	}
 	return ct, nil
 }
@@ -210,7 +214,7 @@ func resolveScope(cmd *cobra.Command, opts runOptions, branch string, scopeEnabl
 func promptScope(cmd *cobra.Command) (string, error) {
 	scope, err := PromptLine(cmd.InOrStdin(), cmd.OutOrStdout(), "Enter optional scope (leave empty if not needed): ")
 	if err != nil {
-		return "", fmt.Errorf("fuzmit: failed to read scope: %w", err)
+		return "", fmt.Errorf("failed to read scope: %w", err)
 	}
 	return normalizeScope(scope)
 }
@@ -236,11 +240,11 @@ func resolveDescription(cmd *cobra.Command, args []string, messageFlag string) (
 		var err error
 		description, err = PromptLine(cmd.InOrStdin(), cmd.OutOrStdout(), "Enter commit description: ")
 		if err != nil {
-			return "", fmt.Errorf("fuzmit: failed to read commit description: %w", err)
+			return "", fmt.Errorf("failed to read commit description: %w", err)
 		}
 	}
 	if description == "" {
-		return "", errors.New("fuzmit: commit description cannot be empty, aborting")
+		return "", errors.New("commit description cannot be empty, aborting")
 	}
 	return description, nil
 }
@@ -285,14 +289,14 @@ func resolveInteractiveCommitInputs(
 	answers, err := promptInteractiveFlow(noEmojis, scopeInputEnabled)
 	if err != nil {
 		if errors.Is(err, errSelectionAborted) {
-			return CommitType{}, "", "", errors.New("fuzmit: no commit type selected, aborting")
+			return CommitType{}, "", "", errors.New("no commit type selected, aborting")
 		}
-		return CommitType{}, "", "", fmt.Errorf("fuzmit: unable to collect interactive inputs: %w", err)
+		return CommitType{}, "", "", fmt.Errorf("unable to collect interactive inputs: %w", err)
 	}
 
 	commitType, ok := FindCommitType(answers.Type)
 	if !ok {
-		return CommitType{}, "", "", fmt.Errorf("fuzmit: selected unknown commit type %q", answers.Type)
+		return CommitType{}, "", "", fmt.Errorf("selected unknown commit type %q", answers.Type)
 	}
 
 	if scopeInputEnabled {
@@ -309,7 +313,7 @@ func resolveInteractiveCommitInputs(
 
 	description := strings.TrimSpace(answers.Description)
 	if description == "" {
-		return CommitType{}, "", "", errors.New("fuzmit: commit description cannot be empty, aborting")
+		return CommitType{}, "", "", errors.New("commit description cannot be empty, aborting")
 	}
 	return commitType, scope, description, nil
 }
@@ -354,7 +358,7 @@ func resolveJiraScope(branch string) (string, error) {
 		return "", nil
 	}
 	if err := ValidateScope(scope); err != nil {
-		return "", fmt.Errorf("fuzmit: invalid extracted Jira scope %q: %w", scope, err)
+		return "", fmt.Errorf("invalid extracted Jira scope %q: %w", scope, err)
 	}
 	return scope, nil
 }

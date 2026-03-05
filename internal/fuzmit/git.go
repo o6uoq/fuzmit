@@ -12,7 +12,7 @@ import (
 func EnsureGitRepo() error {
 	_, err := runGit("rev-parse", "--is-inside-work-tree")
 	if err != nil {
-		return errors.New("fuzmit: not inside a git repository")
+		return errors.New("not inside a git repository")
 	}
 	return nil
 }
@@ -26,7 +26,7 @@ func CurrentBranch() (string, error) {
 
 	branch, err = runGit("rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
-		return "", fmt.Errorf("fuzmit: unable to resolve current branch: %w", err)
+		return "", fmt.Errorf("unable to resolve current branch: %w", err)
 	}
 	return strings.TrimSpace(branch), nil
 }
@@ -43,7 +43,7 @@ func HasStagedChanges() (bool, error) {
 	if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
 		return true, nil
 	}
-	return false, fmt.Errorf("fuzmit: unable to inspect staged changes: %w", err)
+	return false, fmt.Errorf("unable to inspect staged changes: %w", err)
 }
 
 // Commit executes git commit with the provided message.

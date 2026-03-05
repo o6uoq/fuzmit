@@ -23,6 +23,26 @@ func TestInteractiveFlow_HappyPathCommitsSubject(t *testing.T) {
 	}
 
 	got := lastCommitSubjectInDir(t, repoDir)
+	if got != "🧪 test: add coverage" {
+		t.Fatalf("subject=%q want %q", got, "🧪 test: add coverage")
+	}
+}
+
+func TestInteractiveFlow_NoEmojisOmitsEmojiFromSubject(t *testing.T) {
+	stubPromptInteractiveFlow(t, func(_ bool, _ bool) (interactiveCommitAnswers, error) {
+		return interactiveCommitAnswers{
+			Type:        "test",
+			Description: "add coverage",
+		}, nil
+	})
+
+	repoDir := newTempRepoWithStagedFile(t)
+	_, err := runRootCommandInDir(t, repoDir, "", nil, "--override", "--no-emojis")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	got := lastCommitSubjectInDir(t, repoDir)
 	if got != "test: add coverage" {
 		t.Fatalf("subject=%q want %q", got, "test: add coverage")
 	}
@@ -66,8 +86,8 @@ func TestInteractiveFlow_ScopeEnabledByEnvPromptsForScope(t *testing.T) {
 	}
 
 	got := lastCommitSubjectInDir(t, repoDir)
-	if got != "feat(auth): add login" {
-		t.Fatalf("subject=%q want %q", got, "feat(auth): add login")
+	if got != "🚀 feat(auth): add login" {
+		t.Fatalf("subject=%q want %q", got, "🚀 feat(auth): add login")
 	}
 }
 
@@ -94,7 +114,7 @@ func TestInteractiveFlow_JiraScopeEnvDisablesScopePrompt(t *testing.T) {
 	}
 
 	got := lastCommitSubjectInDir(t, repoDir)
-	if got != "fix(ABC-123): patch parser" {
-		t.Fatalf("subject=%q want %q", got, "fix(ABC-123): patch parser")
+	if got != "🔧 fix(ABC-123): patch parser" {
+		t.Fatalf("subject=%q want %q", got, "🔧 fix(ABC-123): patch parser")
 	}
 }
