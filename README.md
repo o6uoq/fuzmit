@@ -79,10 +79,42 @@ Configured checks:
 
 ## Homebrew release model
 
-Recommended path for Homebrew users:
+This repo uses tag-driven releases in GitHub Actions:
 
-1. Build release binaries in GitHub Actions (not local Docker)
-2. Attach tarballs + checksums to GitHub Releases
-3. Update a tap formula from release artifacts (typically automated via GoReleaser)
+1. Push a tag matching `v*`
+2. GitHub Actions runs tests and GoReleaser
+3. GoReleaser publishes release artifacts + checksums to GitHub Releases
+4. GoReleaser opens/updates a PR in `o6uoq/homebrew-tap` for `Formula/fuzmit.rb`
 
-This keeps local development lightweight (`go run`, `go build`) and pushes packaging to CI.
+Required repository secret in `o6uoq/fuzmit`:
+
+- `HOMEBREW_TAP_GITHUB_TOKEN` (PAT with write access to `o6uoq/homebrew-tap`)
+
+Release workflow file:
+
+- `.github/workflows/release.yml`
+
+GoReleaser config:
+
+- `.goreleaser.yaml`
+
+Example prerelease (before `v0.1.0`):
+
+```bash
+git tag v0.0.1-beta.1
+git push origin v0.0.1-beta.1
+```
+
+Example stable release:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Install from tap:
+
+```bash
+brew tap o6uoq/homebrew-tap
+brew install o6uoq/homebrew-tap/fuzmit
+```

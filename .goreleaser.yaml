@@ -1,0 +1,55 @@
+version: 2
+
+project_name: fuzmit
+
+builds:
+  - id: fuzmit
+    main: .
+    binary: fuzmit
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - id: fuzmit
+    ids:
+      - fuzmit
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+release:
+  prerelease: auto
+
+changelog:
+  use: github-native
+
+brews:
+  - name: fuzmit
+    ids:
+      - fuzmit
+    directory: Formula
+    homepage: "https://github.com/o6uoq/fuzmit"
+    description: "Conventional commits with fuzzy type selection and direct CLI flags"
+    commit_author:
+      name: "github-actions[bot]"
+      email: "41898282+github-actions[bot]@users.noreply.github.com"
+    repository:
+      owner: o6uoq
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    install: |
+      bin.install "fuzmit"
+    test: |
+      system "#{bin}/fuzmit", "--help"
