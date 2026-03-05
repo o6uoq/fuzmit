@@ -8,7 +8,7 @@ import (
 
 var jiraScopePattern = regexp.MustCompile(`(?i)[A-Z][A-Z0-9_]+-[0-9]+`)
 var scopePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]*$`)
-var conventionalSubjectPattern = regexp.MustCompile(`^[a-z][a-z0-9-]*(?:\([A-Za-z0-9][A-Za-z0-9._/-]*\))?(?:!)?: [^\r\n]+$`)
+var conventionalSubjectPattern = regexp.MustCompile(`^(?:[^\x00-\x7F]+ )?[a-z][a-z0-9-]*(?:\([A-Za-z0-9][A-Za-z0-9._/-]*\))?(?:!)?: [^\r\n]+$`)
 
 // ExtractJiraScope extracts a Jira issue key from a branch name.
 func ExtractJiraScope(branch string) string {
@@ -43,16 +43,25 @@ func isJiraKeyChar(b byte) bool {
 }
 
 // BuildCommitMessage assembles a conventional commit message.
-func BuildCommitMessage(commitType, scope, description string) string {
+// If emoji is non-empty it is prepended to the subject.
+func BuildCommitMessage(emoji, commitType, scope, description string) string {
+	emoji = strings.TrimSpace(emoji)
 	commitType = strings.TrimSpace(commitType)
 	scope = strings.TrimSpace(scope)
 	description = strings.TrimSpace(description)
 
+	var subject string
 	if scope != "" {
 		scope = strings.Trim(scope, "()")
-		return commitType + "(" + scope + "): " + description
+		subject = commitType + "(" + scope + "): " + description
+	} else {
+		subject = commitType + ": " + description
 	}
-	return commitType + ": " + description
+
+	if emoji != "" {
+		return emoji + " " + subject
+	}
+	return subject
 }
 
 // ValidateScope validates scope characters for conventional commits.

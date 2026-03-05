@@ -28,12 +28,16 @@ func TestExtractJiraScope(t *testing.T) {
 }
 
 func TestBuildCommitMessage(t *testing.T) {
-	if got := BuildCommitMessage("fix", "auth", "patch nil check"); got != "fix(auth): patch nil check" {
+	if got := BuildCommitMessage("🔧", "fix", "auth", "patch nil check"); got != "🔧 fix(auth): patch nil check" {
 		t.Fatalf("unexpected message: %s", got)
 	}
 
-	if got := BuildCommitMessage("docs", "", "update readme"); got != "docs: update readme" {
+	if got := BuildCommitMessage("📚", "docs", "", "update readme"); got != "📚 docs: update readme" {
 		t.Fatalf("unexpected message: %s", got)
+	}
+
+	if got := BuildCommitMessage("", "fix", "auth", "patch nil check"); got != "fix(auth): patch nil check" {
+		t.Fatalf("unexpected message (no emoji): %s", got)
 	}
 }
 
@@ -65,6 +69,8 @@ func TestValidateConventionalSubject(t *testing.T) {
 		"fix: patch nil check",
 		"feat(parser): add array support",
 		"perf(api-v2)!: remove deprecated endpoint",
+		"🔧 fix: patch nil check",
+		"🚀 feat(parser): add array support",
 	}
 	for _, s := range valid {
 		if err := ValidateConventionalSubject(s); err != nil {
