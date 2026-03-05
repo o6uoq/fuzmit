@@ -40,16 +40,7 @@ func newTempRepoWithStagedFile(t *testing.T) string {
 func runRootCommandInDir(t *testing.T, dir string, stdin string, env map[string]string, args ...string) (string, error) {
 	t.Helper()
 
-	previousDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
-	if err := os.Chdir(dir); err != nil {
-		t.Fatalf("chdir to temp repo: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = os.Chdir(previousDir)
-	})
+	t.Chdir(dir)
 
 	t.Setenv(EnvScope, "")
 	t.Setenv(EnvGeoScope, "")
@@ -66,6 +57,13 @@ func runRootCommandInDir(t *testing.T, dir string, stdin string, env map[string]
 	cmd.SetArgs(args)
 
 	return output.String(), cmd.Execute()
+}
+
+func stubPromptInteractiveFlow(t *testing.T, fn func(bool, bool) (interactiveCommitAnswers, error)) {
+	t.Helper()
+	original := promptInteractiveFlow
+	t.Cleanup(func() { promptInteractiveFlow = original })
+	promptInteractiveFlow = fn
 }
 
 func lastCommitSubjectInDir(t *testing.T, dir string) string {

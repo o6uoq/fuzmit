@@ -29,7 +29,7 @@ func TestHelpTaglineColorized(t *testing.T) {
 }
 
 func TestHelpEnvLines(t *testing.T) {
-	lines := helpEnvLines()
+	lines := helpEnvLines(false)
 	if len(lines) != 3 {
 		t.Fatalf("expected 3 env notes lines, got %d", len(lines))
 	}

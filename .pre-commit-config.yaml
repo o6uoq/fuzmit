@@ -1,7 +1,3 @@
-default_install_hook_types:
-  - pre-commit
-  - commit-msg
-
 repos:
   - repo: local
     hooks:
@@ -20,13 +16,6 @@ repos:
         entry: go test ./...
         language: system
         pass_filenames: false
-      - id: conventional-commit-msg
-        name: conventional commit message
-        entry: scripts/validate-commit-msg.sh
-        language: system
-        stages: [commit-msg]
-        pass_filenames: true
-
   - repo: https://github.com/golangci/golangci-lint
     rev: v2.10.1
     hooks:

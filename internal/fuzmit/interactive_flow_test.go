@@ -6,11 +6,7 @@ import (
 )
 
 func TestInteractiveFlow_HappyPathCommitsSubject(t *testing.T) {
-	originalPrompt := promptInteractiveFlow
-	t.Cleanup(func() {
-		promptInteractiveFlow = originalPrompt
-	})
-	promptInteractiveFlow = func(_ bool, askScope bool) (interactiveCommitAnswers, error) {
+	stubPromptInteractiveFlow(t, func(_ bool, askScope bool) (interactiveCommitAnswers, error) {
 		if askScope {
 			t.Fatalf("askScope should be false for default env settings")
 		}
@@ -18,7 +14,7 @@ func TestInteractiveFlow_HappyPathCommitsSubject(t *testing.T) {
 			Type:        "test",
 			Description: "add coverage",
 		}, nil
-	}
+	})
 
 	repoDir := newTempRepoWithStagedFile(t)
 	_, err := runRootCommandInDir(t, repoDir, "", nil, "--override")
@@ -33,13 +29,9 @@ func TestInteractiveFlow_HappyPathCommitsSubject(t *testing.T) {
 }
 
 func TestInteractiveFlow_AbortReturnsFriendlyError(t *testing.T) {
-	originalPrompt := promptInteractiveFlow
-	t.Cleanup(func() {
-		promptInteractiveFlow = originalPrompt
-	})
-	promptInteractiveFlow = func(_ bool, _ bool) (interactiveCommitAnswers, error) {
+	stubPromptInteractiveFlow(t, func(_ bool, _ bool) (interactiveCommitAnswers, error) {
 		return interactiveCommitAnswers{}, errSelectionAborted
-	}
+	})
 
 	repoDir := newTempRepoWithStagedFile(t)
 	_, err := runRootCommandInDir(t, repoDir, "", nil, "--override")
@@ -52,20 +44,15 @@ func TestInteractiveFlow_AbortReturnsFriendlyError(t *testing.T) {
 }
 
 func TestInteractiveFlow_ScopeEnabledByEnvPromptsForScope(t *testing.T) {
-	originalPrompt := promptInteractiveFlow
-	t.Cleanup(func() {
-		promptInteractiveFlow = originalPrompt
-	})
-
 	askedForScope := false
-	promptInteractiveFlow = func(_ bool, askScope bool) (interactiveCommitAnswers, error) {
+	stubPromptInteractiveFlow(t, func(_ bool, askScope bool) (interactiveCommitAnswers, error) {
 		askedForScope = askScope
 		return interactiveCommitAnswers{
 			Type:        "feat",
 			Scope:       "auth",
 			Description: "add login",
 		}, nil
-	}
+	})
 
 	repoDir := newTempRepoWithStagedFile(t)
 	_, err := runRootCommandInDir(t, repoDir, "", map[string]string{
@@ -85,20 +72,15 @@ func TestInteractiveFlow_ScopeEnabledByEnvPromptsForScope(t *testing.T) {
 }
 
 func TestInteractiveFlow_JiraScopeEnvDisablesScopePrompt(t *testing.T) {
-	originalPrompt := promptInteractiveFlow
-	t.Cleanup(func() {
-		promptInteractiveFlow = originalPrompt
-	})
-
 	askedForScope := true
-	promptInteractiveFlow = func(_ bool, askScope bool) (interactiveCommitAnswers, error) {
+	stubPromptInteractiveFlow(t, func(_ bool, askScope bool) (interactiveCommitAnswers, error) {
 		askedForScope = askScope
 		return interactiveCommitAnswers{
 			Type:        "fix",
 			Scope:       "ignored",
 			Description: "patch parser",
 		}, nil
-	}
+	})
 
 	repoDir := newTempRepoWithStagedFile(t)
 	_, err := runRootCommandInDir(t, repoDir, "", map[string]string{

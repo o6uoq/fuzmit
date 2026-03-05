@@ -66,27 +66,30 @@ func printEnvSettings(cmd *cobra.Command, settings []EnvSetting) {
 			sourceWidth = len(row[2])
 		}
 	}
-	note := "FUZMIT_JIRA_SCOPE=true ignores --scope and FUZMIT_SCOPE."
+	_, _ = fmt.Fprintln(w)
+	plainNote := "FUZMIT_JIRA_SCOPE=true ignores --scope and FUZMIT_SCOPE."
+	indent := "    "
 	if !supportsStyling(w) {
-		_, _ = fmt.Fprintf(w, "%-*s  %-*s  %-*s\n", nameWidth, nameCol, valueWidth, valueCol, sourceWidth, sourceCol)
+		_, _ = fmt.Fprintf(w, "%s%-*s  %-*s  %-*s\n", indent, nameWidth, nameCol, valueWidth, valueCol, sourceWidth, sourceCol)
 		for _, row := range rows {
-			_, _ = fmt.Fprintf(w, "%-*s  %-*s  %-*s\n", nameWidth, row[0], valueWidth, row[1], sourceWidth, row[2])
+			_, _ = fmt.Fprintf(w, "%s%-*s  %-*s  %-*s\n", indent, nameWidth, row[0], valueWidth, row[1], sourceWidth, row[2])
 		}
 		_, _ = fmt.Fprintln(w)
-		printStatus(w, outputInfo, note)
+		_, _ = fmt.Fprintf(w, "%s%s\n", indent, plainNote)
 		return
 	}
 
 	cs := defaultFangColorScheme()
 	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(cs.Command)
-	nameStyle := lipgloss.NewStyle().Bold(true)
+	nameStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("81"))
 	valueTrueStyle := lipgloss.NewStyle().Bold(true).Foreground(cs.Flag)
 	valueFalseStyle := lipgloss.NewStyle()
 	sourceStyle := lipgloss.NewStyle()
 
 	_, _ = fmt.Fprintf(
 		w,
-		"%s  %s  %s\n",
+		"%s%s  %s  %s\n",
+		indent,
 		headerStyle.Render(fmt.Sprintf("%-*s", nameWidth, nameCol)),
 		headerStyle.Render(fmt.Sprintf("%-*s", valueWidth, valueCol)),
 		headerStyle.Render(fmt.Sprintf("%-*s", sourceWidth, sourceCol)),
@@ -100,11 +103,13 @@ func printEnvSettings(cmd *cobra.Command, settings []EnvSetting) {
 			valueCell = valueTrueStyle.Render(valueRaw)
 		}
 		sourceCell := sourceStyle.Render(fmt.Sprintf("%-*s", sourceWidth, row[2]))
-		_, _ = fmt.Fprintf(w, "%s  %s  %s\n", nameCell, valueCell, sourceCell)
+		_, _ = fmt.Fprintf(w, "%s%s  %s  %s\n", indent, nameCell, valueCell, sourceCell)
 	}
 
 	_, _ = fmt.Fprintln(w)
-	printStatus(w, outputInfo, note)
+	hl := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("81"))
+	styledNote := hl.Render("FUZMIT_JIRA_SCOPE=true") + " ignores --scope and " + hl.Render("FUZMIT_SCOPE") + "."
+	_, _ = fmt.Fprintf(w, "%s%s\n", indent, styledNote)
 }
 
 func printStatus(w io.Writer, level outputLevel, message string) {
@@ -138,7 +143,7 @@ func PrintHelpNotes(w io.Writer) {
 
 	_, _ = fmt.Fprintf(w, "  %s\n\n", title)
 	_, _ = fmt.Fprintf(w, "    %s\n\n", helpNotesLine(colorize))
-	for _, line := range helpEnvLines() {
+	for _, line := range helpEnvLines(colorize) {
 		_, _ = fmt.Fprintf(w, "    %s\n", line)
 	}
 	_, _ = fmt.Fprintln(w)

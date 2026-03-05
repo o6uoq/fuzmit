@@ -2,6 +2,7 @@ package fuzmit
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -49,19 +50,19 @@ func TestPrintHelpNotesFallback(t *testing.T) {
 	PrintHelpNotes(out)
 
 	got := out.String()
-	if !bytes.Contains([]byte(got), []byte("NOTES")) {
+	if !strings.Contains(got, "NOTES") {
 		t.Fatalf("expected NOTES section, got %q", got)
 	}
-	if !bytes.Contains([]byte(got), []byte(conventionalCommitsSpecURL)) {
+	if !strings.Contains(got, conventionalCommitsSpecURL) {
 		t.Fatalf("expected Conventional Commits URL, got %q", got)
 	}
-	if !bytes.Contains([]byte(got), []byte(EnvGeoScope)) {
+	if !strings.Contains(got, EnvGeoScope) {
 		t.Fatalf("expected %s note, got %q", EnvGeoScope, got)
 	}
-	if !bytes.Contains([]byte(got), []byte(EnvScope)) {
+	if !strings.Contains(got, EnvScope) {
 		t.Fatalf("expected %s note, got %q", EnvScope, got)
 	}
-	if !bytes.Contains([]byte(got), []byte(EnvNoEmojis)) {
+	if !strings.Contains(got, EnvNoEmojis) {
 		t.Fatalf("expected %s note, got %q", EnvNoEmojis, got)
 	}
 }
