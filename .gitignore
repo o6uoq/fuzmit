@@ -1,0 +1,6 @@
+.gocache/
+.gomodcache/
+.gopath/
+/fuzmit
+/git-fuzmit
+*.cast

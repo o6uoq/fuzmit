@@ -1,0 +1,375 @@
+package fuzmit
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/spf13/cobra"
+)
+
+type runOptions struct {
+	Type     string
+	Scope    string
+	ScopeSet bool
+	AskScope bool
+	GeoScope bool
+	NoEmojis bool
+	Override bool
+	Message  string
+}
+
+const scopePromptSentinel = "__PROMPT_SCOPE__"
+
+var promptInteractiveFlow = PromptInteractiveCommitFlow
+
+// NewRootCommand builds the fuzmit command tree.
+func NewRootCommand() *cobra.Command {
+	opts := runOptions{}
+
+	cmd := &cobra.Command{
+		Use:   "fuzmit [flags] [description]",
+		Short: "Conventional Commits, but Fuzzy",
+		Long:  rootLongDescription(supportsStyling(os.Stdout)),
+		Example: `# Interactive fuzzy flow:
+fuzmit
+
+# Explicit type/scope/message:
+fuzmit --type fix --scope auth -m "fix nil panic"
+
+# Prompt for optional scope:
+fuzmit --type feat --scope
+
+# Disable emojis in commit subjects/picker/help:
+fuzmit --no-emojis`,
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			localOpts := opts
+			localOpts.ScopeSet = cmd.Flags().Changed("scope")
+			if localOpts.ScopeSet && strings.TrimSpace(localOpts.Scope) == scopePromptSentinel {
+				localOpts.Scope = ""
+				localOpts.AskScope = true
+			}
+			if !localOpts.GeoScope && cmd.Flags().Changed("geoscope") {
+				v, _ := cmd.Flags().GetBool("geoscope")
+				localOpts.GeoScope = v
+			}
+			if err := validateFlagDependencies(localOpts); err != nil {
+				return err
+			}
+			return runCommit(cmd, args, localOpts)
+		},
+	}
+
+	typeList := strings.Join(typeNames(), "|")
+	cmd.Flags().StringVarP(&opts.Type, "type", "t", "", "Commit type: "+typeList)
+	_ = cmd.RegisterFlagCompletionFunc("type", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return typeNames(), cobra.ShellCompDirectiveNoFileComp
+	})
+	cmd.Flags().StringVarP(&opts.Scope, "scope", "s", "", "Set optional scope (e.g. auth or ABC-123); requires --type. Pass --scope without a value to prompt")
+	if scopeFlag := cmd.Flags().Lookup("scope"); scopeFlag != nil {
+		scopeFlag.NoOptDefVal = scopePromptSentinel
+	}
+	cmd.Flags().BoolVar(&opts.AskScope, "prompt-scope", false, "Deprecated: use --scope without a value")
+	_ = cmd.Flags().MarkHidden("prompt-scope")
+	_ = cmd.Flags().MarkDeprecated("prompt-scope", "use --scope without a value instead")
+	cmd.Flags().BoolVarP(&opts.GeoScope, "jira-scope", "j", false, "Detect Jira scope from branch name (e.g. ABC-123)")
+	cmd.Flags().Bool("geoscope", false, "Deprecated alias for --jira-scope")
+	_ = cmd.Flags().MarkHidden("geoscope")
+	_ = cmd.Flags().MarkDeprecated("geoscope", "use --jira-scope instead")
+	cmd.Flags().BoolVar(&opts.NoEmojis, "no-emojis", false, "Disable emojis in commit subjects, picker menus, and help output")
+	cmd.Flags().BoolVar(&opts.Override, "override", false, "Bypass main branch protection")
+	cmd.Flags().StringVarP(&opts.Message, "message", "m", "", "Commit message")
+
+	cmd.AddCommand(newEnvCommand())
+
+	return cmd
+}
+
+func runCommit(cmd *cobra.Command, args []string, opts runOptions) error {
+	defaults := ResolveDefaults(os.Getenv)
+
+	noEmojis := defaults.NoEmojis || opts.NoEmojis
+	geoScope := defaults.GeoScope || opts.GeoScope
+	scopeEnabled := defaults.Scope || opts.AskScope
+
+	if err := EnsureGitRepo(); err != nil {
+		return err
+	}
+
+	branch, err := CurrentBranch()
+	if err != nil {
+		return err
+	}
+	if branch == "main" && !opts.Override {
+		return errors.New("you are on the main branch; use --override to bypass this check")
+	}
+
+	hasStaged, err := HasStagedChanges()
+	if err != nil {
+		return err
+	}
+	if !hasStaged {
+		printInfo(cmd, "No staged changes to commit.")
+		return nil
+	}
+
+	var (
+		commitType  CommitType
+		scope       string
+		description string
+	)
+
+	if shouldUseUnifiedInteractiveFlow(args, opts) {
+		commitType, scope, description, err = resolveInteractiveCommitInputs(cmd, opts, branch, noEmojis, scopeEnabled, geoScope)
+		if err != nil {
+			return err
+		}
+	} else {
+		commitType, err = resolveCommitType(opts.Type, noEmojis)
+		if err != nil {
+			return err
+		}
+
+		scope, err = resolveScope(cmd, opts, branch, scopeEnabled, geoScope)
+		if err != nil {
+			return err
+		}
+
+		description, err = resolveDescription(cmd, args, opts.Message)
+		if err != nil {
+			return err
+		}
+	}
+
+	emoji := commitType.Emoji
+	if noEmojis {
+		emoji = ""
+	}
+	full := BuildCommitMessage(emoji, commitType.Name, scope, description)
+	if err := ValidateConventionalSubject(full); err != nil {
+		return err
+	}
+
+	printCommit(cmd, full)
+
+	output, err := Commit(full)
+	if output != "" {
+		cmd.Println(output)
+	}
+	if err != nil {
+		return fmt.Errorf("git commit failed: %w", err)
+	}
+	return nil
+}
+
+func validateFlagDependencies(opts runOptions) error {
+	if opts.ScopeSet && strings.TrimSpace(opts.Type) == "" {
+		return errors.New("--type is required when --scope is provided")
+	}
+	return nil
+}
+
+func resolveCommitType(typeFlag string, noEmojis bool) (CommitType, error) {
+	if typeFlag != "" {
+		ct, ok := FindCommitType(typeFlag)
+		if !ok {
+			return CommitType{}, fmt.Errorf("invalid --type %q", typeFlag)
+		}
+		return ct, nil
+	}
+
+	ct, err := SelectCommitType(noEmojis)
+	if err != nil {
+		if errors.Is(err, errSelectionAborted) {
+			return CommitType{}, errors.New("no commit type selected, aborting")
+		}
+		return CommitType{}, fmt.Errorf("unable to select commit type: %w", err)
+	}
+	return ct, nil
+}
+
+func resolveScope(cmd *cobra.Command, opts runOptions, branch string, scopeEnabled bool, geoScope bool) (string, error) {
+	if geoScope {
+		scope, err := resolveJiraScope(branch)
+		if err != nil {
+			return "", err
+		}
+		printJiraScopeInfo(cmd, scope)
+		return scope, nil
+	}
+
+	if opts.ScopeSet {
+		if opts.AskScope {
+			return promptScope(cmd)
+		}
+		return normalizeScope(opts.Scope)
+	}
+
+	if !scopeEnabled {
+		return "", nil
+	}
+
+	return promptScope(cmd)
+}
+
+func promptScope(cmd *cobra.Command) (string, error) {
+	scope, err := PromptLine(cmd.InOrStdin(), cmd.OutOrStdout(), "Enter optional scope (leave empty if not needed): ")
+	if err != nil {
+		return "", fmt.Errorf("failed to read scope: %w", err)
+	}
+	return normalizeScope(scope)
+}
+
+func normalizeScope(scope string) (string, error) {
+	scope = strings.TrimSpace(scope)
+	if scope == "" {
+		return "", nil
+	}
+	scope = strings.Trim(scope, "()")
+	if err := ValidateScope(scope); err != nil {
+		return "", fmt.Errorf("invalid --scope value %q: %w", scope, err)
+	}
+	return scope, nil
+}
+
+func resolveDescription(cmd *cobra.Command, args []string, messageFlag string) (string, error) {
+	description := strings.TrimSpace(messageFlag)
+	if description == "" && len(args) > 0 {
+		description = strings.TrimSpace(strings.Join(args, " "))
+	}
+	if description == "" {
+		var err error
+		description, err = PromptLine(cmd.InOrStdin(), cmd.OutOrStdout(), "Enter commit description: ")
+		if err != nil {
+			return "", fmt.Errorf("failed to read commit description: %w", err)
+		}
+	}
+	if description == "" {
+		return "", errors.New("commit description cannot be empty, aborting")
+	}
+	return description, nil
+}
+
+func shouldUseUnifiedInteractiveFlow(args []string, opts runOptions) bool {
+	return strings.TrimSpace(opts.Type) == "" &&
+		strings.TrimSpace(opts.Message) == "" &&
+		len(args) == 0
+}
+
+func resolveInteractiveCommitInputs(
+	cmd *cobra.Command,
+	opts runOptions,
+	branch string,
+	noEmojis bool,
+	scopeEnabled bool,
+	geoScope bool,
+) (CommitType, string, string, error) {
+	scopeInputEnabled := false
+	scope := ""
+
+	if geoScope {
+		extracted, err := resolveJiraScope(branch)
+		if err != nil {
+			return CommitType{}, "", "", err
+		}
+		scope = extracted
+	} else if opts.ScopeSet {
+		if opts.AskScope {
+			scopeInputEnabled = true
+		} else {
+			normalizedScope, err := normalizeScope(opts.Scope)
+			if err != nil {
+				return CommitType{}, "", "", err
+			}
+			scope = normalizedScope
+		}
+	} else if scopeEnabled {
+		scopeInputEnabled = true
+	}
+
+	answers, err := promptInteractiveFlow(noEmojis, scopeInputEnabled)
+	if err != nil {
+		if errors.Is(err, errSelectionAborted) {
+			return CommitType{}, "", "", errors.New("no commit type selected, aborting")
+		}
+		return CommitType{}, "", "", fmt.Errorf("unable to collect interactive inputs: %w", err)
+	}
+
+	commitType, ok := FindCommitType(answers.Type)
+	if !ok {
+		return CommitType{}, "", "", fmt.Errorf("selected unknown commit type %q", answers.Type)
+	}
+
+	if scopeInputEnabled {
+		normalizedScope, err := normalizeScope(answers.Scope)
+		if err != nil {
+			return CommitType{}, "", "", err
+		}
+		scope = normalizedScope
+	}
+
+	if geoScope {
+		printJiraScopeInfo(cmd, scope)
+	}
+
+	description := strings.TrimSpace(answers.Description)
+	if description == "" {
+		return CommitType{}, "", "", errors.New("commit description cannot be empty, aborting")
+	}
+	return commitType, scope, description, nil
+}
+
+func typeNames() []string {
+	out := make([]string, 0, len(SupportedTypes))
+	for _, ct := range SupportedTypes {
+		out = append(out, ct.Name)
+	}
+	return out
+}
+
+func newEnvCommand() *cobra.Command {
+	return newEnvCommandWithGetenv(os.Getenv)
+}
+
+func newEnvCommandWithGetenv(getenv func(string) string) *cobra.Command {
+	return &cobra.Command{
+		Use:   "env",
+		Short: "Show effective FUZMIT_* environment defaults",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			settings := ResolveEnvSettings(getenv)
+			printEnvSettings(cmd, settings)
+			return nil
+		},
+	}
+}
+
+func envSettingSource(setting EnvSetting) string {
+	if !setting.FromEnv {
+		return "default"
+	}
+	if !setting.ValidBool {
+		return fmt.Sprintf("default (invalid: %q)", setting.Raw)
+	}
+	return fmt.Sprintf("env (%q)", setting.Raw)
+}
+
+func resolveJiraScope(branch string) (string, error) {
+	scope := ExtractJiraScope(branch)
+	if scope == "" {
+		return "", nil
+	}
+	if err := ValidateScope(scope); err != nil {
+		return "", fmt.Errorf("invalid extracted Jira scope %q: %w", scope, err)
+	}
+	return scope, nil
+}
+
+func printJiraScopeInfo(cmd *cobra.Command, scope string) {
+	if scope != "" {
+		printInfof(cmd, "Auto-detected Jira scope %q.", scope)
+		return
+	}
+	printInfo(cmd, "Jira scope auto-detect enabled; no Jira key found in branch, proceeding without scope.")
+}
