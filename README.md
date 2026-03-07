@@ -28,7 +28,7 @@ git fuzmit --help
 
 ## Flags (A-Z)
 
-- `--jira-scope` auto-detect Jira scope from current branch (for example `ABC-123`)
+- `--jira-scope` detect Jira scope from current branch (for example `ABC-123`)
 - `-m, --message <description>` set commit description directly
 - `--no-emojis` disable emojis in commit-type picker/help output
 - `--override` bypass main-branch protection
@@ -36,7 +36,7 @@ git fuzmit --help
 - `--scope` (no value) prompt for optional scope interactively (requires `--type`)
 - `--type <type>` set commit type directly (`build|chore|ci|docs|feat|fix|perf|refactor|style|test`)
 
-Commit subjects are always emoji-free conventional commits.
+Commit subjects follow Conventional Commits; emojis are included by default and can be disabled with `--no-emojis` or `FUZMIT_NO_EMOJIS=true`.
 
 ## Environment defaults
 

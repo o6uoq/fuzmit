@@ -143,3 +143,22 @@ func TestShouldUseUnifiedInteractiveFlow(t *testing.T) {
 		})
 	}
 }
+
+func TestTypeFlagCompletionIncludesSupportedTypes(t *testing.T) {
+	cmd := NewRootCommand()
+	out := &bytes.Buffer{}
+	cmd.SetOut(out)
+	cmd.SetErr(out)
+	cmd.SetArgs([]string{"__complete", "--type", ""})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("completion command failed: %v", err)
+	}
+
+	got := out.String()
+	for _, name := range typeNames() {
+		if !strings.Contains(got, name) {
+			t.Fatalf("expected completion output to contain type %q, got %q", name, got)
+		}
+	}
+}

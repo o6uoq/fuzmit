@@ -64,6 +64,9 @@ fuzmit --no-emojis`,
 
 	typeList := strings.Join(typeNames(), "|")
 	cmd.Flags().StringVarP(&opts.Type, "type", "t", "", "Commit type: "+typeList)
+	_ = cmd.RegisterFlagCompletionFunc("type", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return typeNames(), cobra.ShellCompDirectiveNoFileComp
+	})
 	cmd.Flags().StringVarP(&opts.Scope, "scope", "s", "", "Set optional scope (e.g. auth or ABC-123); requires --type. Pass --scope without a value to prompt")
 	if scopeFlag := cmd.Flags().Lookup("scope"); scopeFlag != nil {
 		scopeFlag.NoOptDefVal = scopePromptSentinel
@@ -71,7 +74,7 @@ fuzmit --no-emojis`,
 	cmd.Flags().BoolVar(&opts.AskScope, "prompt-scope", false, "Deprecated: use --scope without a value")
 	_ = cmd.Flags().MarkHidden("prompt-scope")
 	_ = cmd.Flags().MarkDeprecated("prompt-scope", "use --scope without a value instead")
-	cmd.Flags().BoolVarP(&opts.GeoScope, "jira-scope", "j", false, "Auto-detect Jira scope from branch name (e.g. ABC-123)")
+	cmd.Flags().BoolVarP(&opts.GeoScope, "jira-scope", "j", false, "Detect Jira scope from branch name (e.g. ABC-123)")
 	cmd.Flags().Bool("geoscope", false, "Deprecated alias for --jira-scope")
 	_ = cmd.Flags().MarkHidden("geoscope")
 	_ = cmd.Flags().MarkDeprecated("geoscope", "use --jira-scope instead")
