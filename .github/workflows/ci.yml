@@ -25,22 +25,24 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Check formatting
+      - name: Verify go.mod/go.sum are tidy
         run: |
-          unformatted="$(gofmt -l .)"
-          if [ -n "$unformatted" ]; then
-            echo "Unformatted files:"
-            echo "$unformatted"
-            exit 1
-          fi
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
 
-      - name: Go vet
-        run: go vet ./...
-
-      - name: Go test
-        run: go test ./...
-
-      - name: golangci-lint
+      - name: golangci-lint (full)
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.10.1
+          args: --timeout=5m
+
+      - name: Go test (race)
+        run: go test -race ./...
+
+      - name: Go test (coverage)
+        run: |
+          go test -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out | tail -n 1
+          total="$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/, "", $3); print $3}')"
+          min=65
+          awk -v total="$total" -v min="$min" 'BEGIN { if (total+0 < min+0) exit 1 }'
