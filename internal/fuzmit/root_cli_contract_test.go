@@ -11,6 +11,9 @@ func TestCLIContracts_TypeScopeAndEnvMatrix(t *testing.T) {
 		stdin       string
 		env         map[string]string
 		args        []string
+		setup       func(t *testing.T, repoDir string)
+		verify      func(t *testing.T, repoDir, output string)
+		wantOutput  string
 		wantSubject string
 		wantErr     string
 	}{
@@ -73,6 +76,39 @@ func TestCLIContracts_TypeScopeAndEnvMatrix(t *testing.T) {
 			wantSubject: "🔧 fix(ABC-123): patch parser",
 		},
 		{
+			name:        "jira scope flag overrides explicit scope",
+			args:        []string{"--override", "--jira-scope", "--type", "fix", "--scope=auth", "-m", "patch parser"},
+			wantSubject: "🔧 fix(ABC-123): patch parser",
+		},
+		{
+			name:    "invalid scope value errors",
+			args:    []string{"--override", "--type", "fix", "--scope=bad?", "-m", "patch parser"},
+			wantErr: "invalid --scope value \"bad?\"",
+		},
+		{
+			name: "main branch requires override",
+			setup: func(t *testing.T, repoDir string) {
+				t.Helper()
+				runGitInDir(t, repoDir, "checkout", "-B", "main")
+			},
+			args:    []string{"--type", "fix", "-m", "patch parser"},
+			wantErr: "you are on the main branch; use --override to bypass this check",
+		},
+		{
+			name: "no staged changes exits cleanly",
+			setup: func(t *testing.T, repoDir string) {
+				t.Helper()
+				runGitInDir(t, repoDir, "commit", "-m", "test: initial")
+			},
+			args: []string{"--override", "--type", "fix", "-m", "patch parser"},
+			verify: func(t *testing.T, repoDir, _ string) {
+				t.Helper()
+				if got := runGitInDir(t, repoDir, "rev-list", "--count", "HEAD"); got != "1" {
+					t.Fatalf("expected no new commit when nothing is staged, got commit count %q", got)
+				}
+			},
+		},
+		{
 			name: "scope env prompt blank keeps no scope",
 			env: map[string]string{
 				EnvScope: "true",
@@ -95,7 +131,10 @@ func TestCLIContracts_TypeScopeAndEnvMatrix(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			repoDir := newTempRepoWithStagedFile(t)
-			_, err := runRootCommandInDir(t, repoDir, tc.stdin, tc.env, tc.args...)
+			if tc.setup != nil {
+				tc.setup(t, repoDir)
+			}
+			output, err := runRootCommandInDir(t, repoDir, tc.stdin, tc.env, tc.args...)
 
 			if tc.wantErr != "" {
 				if err == nil {
@@ -111,9 +150,17 @@ func TestCLIContracts_TypeScopeAndEnvMatrix(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			got := lastCommitSubjectInDir(t, repoDir)
-			if got != tc.wantSubject {
-				t.Fatalf("subject=%q want %q", got, tc.wantSubject)
+			if tc.wantOutput != "" && !strings.Contains(output, tc.wantOutput) {
+				t.Fatalf("output=%q want substring %q", output, tc.wantOutput)
+			}
+			if tc.verify != nil {
+				tc.verify(t, repoDir, output)
+			}
+			if tc.wantSubject != "" {
+				got := lastCommitSubjectInDir(t, repoDir)
+				if got != tc.wantSubject {
+					t.Fatalf("subject=%q want %q", got, tc.wantSubject)
+				}
 			}
 		})
 	}
