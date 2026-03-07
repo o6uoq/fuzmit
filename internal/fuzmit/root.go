@@ -64,6 +64,9 @@ fuzmit --no-emojis`,
 
 	typeList := strings.Join(typeNames(), "|")
 	cmd.Flags().StringVarP(&opts.Type, "type", "t", "", "Commit type: "+typeList)
+	_ = cmd.RegisterFlagCompletionFunc("type", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return typeNames(), cobra.ShellCompDirectiveNoFileComp
+	})
 	cmd.Flags().StringVarP(&opts.Scope, "scope", "s", "", "Set optional scope (e.g. auth or ABC-123); requires --type. Pass --scope without a value to prompt")
 	if scopeFlag := cmd.Flags().Lookup("scope"); scopeFlag != nil {
 		scopeFlag.NoOptDefVal = scopePromptSentinel

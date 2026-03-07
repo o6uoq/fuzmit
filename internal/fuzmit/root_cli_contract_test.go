@@ -20,9 +20,26 @@ func TestCLIContracts_TypeScopeAndEnvMatrix(t *testing.T) {
 			wantSubject: "🔧 fix: patch parser",
 		},
 		{
+			name:    "invalid type errors",
+			args:    []string{"--override", "--type", "invalid", "-m", "patch parser"},
+			wantErr: "invalid --type \"invalid\"",
+		},
+		{
 			name:        "type scope and message with emoji",
 			args:        []string{"--override", "--type", "fix", "--scope=auth", "-m", "patch parser"},
 			wantSubject: "🔧 fix(auth): patch parser",
+		},
+		{
+			name:        "type scope prompt with value uses scope",
+			stdin:       "auth\n",
+			args:        []string{"--override", "--type", "feat", "--scope", "-m", "add login"},
+			wantSubject: "🚀 feat(auth): add login",
+		},
+		{
+			name:        "type scope prompt with blank keeps no scope",
+			stdin:       "\n",
+			args:        []string{"--override", "--type", "feat", "--scope", "-m", "add login"},
+			wantSubject: "🚀 feat: add login",
 		},
 		{
 			name:        "no-emojis omits emoji from subject",
@@ -48,6 +65,11 @@ func TestCLIContracts_TypeScopeAndEnvMatrix(t *testing.T) {
 				EnvGeoScope: "true",
 			},
 			args:        []string{"--override", "--type", "fix", "-m", "patch parser"},
+			wantSubject: "🔧 fix(ABC-123): patch parser",
+		},
+		{
+			name:        "jira scope flag auto detects scope",
+			args:        []string{"--override", "--jira-scope", "--type", "fix", "-m", "patch parser"},
 			wantSubject: "🔧 fix(ABC-123): patch parser",
 		},
 		{
