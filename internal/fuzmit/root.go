@@ -74,7 +74,7 @@ fuzmit --no-emojis`,
 	cmd.Flags().BoolVar(&opts.AskScope, "prompt-scope", false, "Deprecated: use --scope without a value")
 	_ = cmd.Flags().MarkHidden("prompt-scope")
 	_ = cmd.Flags().MarkDeprecated("prompt-scope", "use --scope without a value instead")
-	cmd.Flags().BoolVarP(&opts.GeoScope, "jira-scope", "j", false, "Auto-detect Jira scope from branch name (e.g. ABC-123)")
+	cmd.Flags().BoolVarP(&opts.GeoScope, "jira-scope", "j", false, "Detect Jira scope from branch name (e.g. ABC-123)")
 	cmd.Flags().Bool("geoscope", false, "Deprecated alias for --jira-scope")
 	_ = cmd.Flags().MarkHidden("geoscope")
 	_ = cmd.Flags().MarkDeprecated("geoscope", "use --jira-scope instead")
