@@ -28,15 +28,6 @@ jobs:
       - name: Test
         run: go test ./...
 
-      - name: Verify tap token
-        env:
-          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
-        run: |
-          if [ -z "${HOMEBREW_TAP_GITHUB_TOKEN}" ]; then
-            echo "Missing HOMEBREW_TAP_GITHUB_TOKEN repository secret."
-            exit 1
-          fi
-
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:
@@ -45,4 +36,3 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
