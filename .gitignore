@@ -1,6 +1,5 @@
 .gocache/
 .gomodcache/
 .gopath/
-/fuzmit
-/git-fuzmit
+.DS_Store
 *.cast

@@ -8,11 +8,11 @@ fuzmit: Conventional Commits, but Fuzzy.
 
 ## 🍺 Install (Homebrew)
 
-From [o6uoq/homebrew-tap](https://github.com/o6uoq/homebrew-tap):
+From [o6uoq/tap](https://github.com/o6uoq/homebrew-tap):
 
 ```bash
-brew tap o6uoq/homebrew-tap
-brew install o6uoq/homebrew-tap/fuzmit
+brew tap o6uoq/tap
+brew install o6uoq/tap/fuzmit
 ```
 
 ## ⚡ Quick Start
