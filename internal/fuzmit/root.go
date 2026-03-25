@@ -154,11 +154,7 @@ func runCommit(cmd *cobra.Command, args []string, opts runOptions) error {
 
 	printCommit(cmd, full)
 
-	output, err := Commit(full)
-	if output != "" {
-		cmd.Println(output)
-	}
-	if err != nil {
+	if err := Commit(full); err != nil {
 		return fmt.Errorf("git commit failed: %w", err)
 	}
 	return nil

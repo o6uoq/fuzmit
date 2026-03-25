@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -47,8 +48,13 @@ func HasStagedChanges() (bool, error) {
 }
 
 // Commit executes git commit with the provided message.
-func Commit(message string) (string, error) {
-	return runGit("commit", "-m", message)
+// Stdio is connected to the terminal so pre-commit hooks remain interactive.
+func Commit(message string) error {
+	cmd := exec.Command("git", "commit", "-m", message)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 func runGit(args ...string) (string, error) {
