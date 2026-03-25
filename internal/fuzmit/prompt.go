@@ -9,9 +9,12 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 )
 
 var errSelectionAborted = errors.New("selection aborted")
+
+var filterHintText = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("Type to filter, Enter to select")
 
 // interactiveCommitAnswers contains values collected from the unified
 // interactive form flow.
@@ -79,11 +82,18 @@ func PromptInteractiveCommitFlow(noEmojis bool, askScope bool) (interactiveCommi
 	return answers, nil
 }
 
-// pickerTypes returns commit types in deterministic alphabetical order.
+// pickerTypes returns commit types sorted by name length (ascending), then
+// alphabetically. Shorter names appear first so that exact name matches
+// naturally rank above longer items that only match via description text
+// (e.g. typing "ci" shows "ci" before "build" whose description contains
+// "dependencies").
 func pickerTypes() []CommitType {
 	types := make([]CommitType, len(SupportedTypes))
 	copy(types, SupportedTypes)
 	sort.Slice(types, func(i, j int) bool {
+		if len(types[i].Name) != len(types[j].Name) {
+			return len(types[i].Name) < len(types[j].Name)
+		}
 		return types[i].Name < types[j].Name
 	})
 	return types
@@ -101,7 +111,7 @@ func commitTypeOptions(noEmojis bool) []huh.Option[string] {
 func newCommitTypeSelect(noEmojis bool, value *string) *huh.Select[string] {
 	return huh.NewSelect[string]().
 		Title("Pick commit type").
-		Description("Type to filter, Enter to select").
+		Description(filterHintText).
 		Filtering(true).
 		Options(commitTypeOptions(noEmojis)...).
 		Value(value)
