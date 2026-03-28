@@ -33,7 +33,7 @@ jobs:
       - name: golangci-lint (full)
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.10.1
+          version: v2.11.4
           args: --timeout=5m
 
       - name: Go test (race)
