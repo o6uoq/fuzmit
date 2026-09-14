@@ -7,7 +7,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/charmbracelet/fang v1.0.0
 	github.com/charmbracelet/x/term v0.2.2
-	github.com/mattn/go-runewidth v0.0.29
+	github.com/mattn/go-runewidth v0.0.30
 	github.com/spf13/cobra v1.10.2
 )
 
